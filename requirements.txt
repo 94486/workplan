@@ -1,0 +1,7 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+# Windows 桌面模式（系统托盘 + 图标绘制）
+pystray==0.19.5
+Pillow==11.1.0
+python-multipart

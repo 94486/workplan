@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>个人工作管理工作台</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>" />
+  <script>
+    // 防闪烁：渲染前按 ?theme= 参数（优先级高）或 localStorage 记忆应用主题
+    (function () {
+      try {
+        var q = new URLSearchParams(location.search).get("theme");
+        var t = (q === "light" || q === "dark") ? q : (localStorage.getItem("wd_theme") || "dark");
+        document.documentElement.dataset.theme = t;
+      } catch (e) { document.documentElement.dataset.theme = "dark"; }
+    })();
+  </script>
+</head>
+<body>
+  <!-- 背景科技感装饰层（星点 / 光束 / 透视网格，纯视觉） -->
+  <div class="bg-fx" aria-hidden="true">
+    <div class="bg-stars"></div>
+    <div class="bg-beam"></div>
+    <div class="bg-grid-floor"></div>
+  </div>
+
+  <!-- 顶部导航 -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">
+        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+          <defs>
+            <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#38bdf8"/>
+              <stop offset="1" stop-color="#a78bfa"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="28" height="28" rx="8" fill="url(#brandGrad)" opacity=".14"/>
+          <rect x="2" y="2" width="28" height="28" rx="8" fill="none" stroke="url(#brandGrad)" stroke-width="1.6"/>
+          <path d="M16 5.5l8.5 5.2v10.6L16 26.5l-8.5-5.2V10.7z" fill="none" stroke="url(#brandGrad)" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="16" cy="16" r="3.6" fill="url(#brandGrad)"/>
+        </svg>
+      </span>
+      <span class="brand-name">WORK·OS</span>
+      <span class="brand-sub">个人工作管理工作台</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="kanban">📅 日程看板</button>
+      <button class="tab" data-tab="stats">📊 工时收入</button>
+      <button class="tab" data-tab="list">🗂 全部工作</button>
+    </nav>
+    <div class="topbar-actions">
+      <span class="today-chip" id="todayChip"></span>
+      <button class="icon-btn" id="btnRefresh" title="刷新数据">⟳</button>
+      <button class="icon-btn" id="btnTheme" title="切换深浅色主题">☀️</button>
+      <button class="btn btn-ghost btn-sm" id="btnImport" title="从 JSON / CSV 文件导入数据">⇧ 导入</button>
+      <button class="btn btn-ghost btn-sm" id="btnExport" title="导出全部数据为备份文件">⇩ 导出</button>
+      <button class="btn btn-primary" id="btnNewWork">＋ 录入工作</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- ============ 顶部欢迎横幅 ============ -->
+    <div class="hero" id="heroBanner">
+      <div class="hero-left">
+        <div class="hero-greet">
+          <b id="heroGreet">晚上好，继续加油</b>
+          <svg class="hero-badge" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2l2.4 5.6L20 8.4l-4.2 3.9 1.1 6.2L12 15.8 7.1 18.5l1.1-6.2L4 8.4l5.6-.8z" fill="currentColor"/>
+          </svg>
+        </div>
+        <p class="hero-sub" id="heroSub">今天是 2026年8月21日 星期五 · 距周末还有 1 天</p>
+      </div>
+      <div class="hero-clock" id="heroClock">
+        <span class="clock-time" id="clockTime">--:--:--</span>
+        <span class="clock-date" id="clockDate">-- --</span>
+      </div>
+    </div>
+
+    <!-- ============ 日程看板 ============ -->
+    <section class="view active" id="view-kanban">
+      <div class="week-summary" id="weekSummary"></div>
+      <div class="board-toolbar">
+        <div class="board-nav">
+          <div class="view-switch" id="viewSwitch">
+            <button class="vs-btn active" data-mode="week">周视图</button>
+            <button class="vs-btn" data-mode="month">月视图</button>
+          </div>
+          <button class="icon-btn" id="boardPrev">‹</button>
+          <span class="board-range" id="boardRange"></span>
+          <button class="icon-btn" id="boardNext">›</button>
+          <button class="btn btn-ghost btn-sm" id="boardToday">回到今天</button>
+        </div>
+        <div class="legend">
+          <span class="legend-item"><i class="dot dot-regular"></i>常规工作</span>
+          <span class="legend-item"><i class="dot dot-other"></i>其他工作</span>
+          <span class="legend-item"><i class="dot dot-done"></i>已完成</span>
+          <span class="legend-item"><i class="dot dot-overdue"></i>已逾期</span>
+        </div>
+      </div>
+      <div class="kanban" id="kanban"></div>
+      <div class="board-hint">提示：点击空白日期格快速录入 · 点击卡片查看操作 · 悬浮卡片右上角 ✓ 可一键完成</div>
+    </section>
+
+    <!-- ============ 工时收入统计 ============ -->
+    <section class="view" id="view-stats">
+      <div class="stats-hero" id="statsHero"></div>
+      <div class="stats-sub" id="statsSub"></div>
+      <div class="stats-grid">
+        <div class="panel panel-wide">
+          <div class="panel-title">工时 / 收入趋势（近 8 周）<span class="panel-note">柱 · 工时（右轴）｜线 · 收入（左轴）</span></div>
+          <div class="chart-wrap"><svg id="chartWeekly" class="chart chart-tall"></svg></div>
+        </div>
+      </div>
+      <div class="period-grid" id="statsPeriods"></div>
+    </section>
+
+    <!-- ============ 全部工作 ============ -->
+    <section class="view" id="view-list">
+      <div class="list-toolbar">
+        <div class="filter-group">
+          <select id="filterType" class="select">
+            <option value="">全部类型</option>
+            <option value="regular">常规工作</option>
+            <option value="other">其他工作</option>
+          </select>
+          <select id="filterStatus" class="select">
+            <option value="">全部状态</option>
+            <option value="pending">待完成</option>
+            <option value="done">已完成</option>
+          </select>
+          <input type="date" id="filterFrom" class="input input-date" />
+          <span class="filter-sep">至</span>
+          <input type="date" id="filterTo" class="input input-date" />
+          <button class="btn btn-ghost btn-sm" id="btnClearFilter">清除筛选</button>
+        </div>
+        <span class="list-count" id="listCount"></span>
+      </div>
+      <table class="work-table" id="workTable">
+        <thead>
+          <tr>
+            <th class="sortable" data-key="name">工作名称</th>
+            <th>类型</th>
+            <th>状态</th>
+            <th class="sortable" data-key="planned_date">计划日期</th>
+            <th class="sortable" data-key="duration_hours">花费时长</th>
+            <th class="sortable" data-key="expected_income">预期收入</th>
+            <th class="sortable" data-key="completed_date">完成日期</th>
+            <th class="sortable" data-key="actual_income">实际收入</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="workTableBody"></tbody>
+        <tfoot id="workTableFoot"></tfoot>
+      </table>
+    </section>
+  </main>
+
+  <!-- 工作编辑弹窗（新建 / 编辑 / 标记完成共用） -->
+  <div class="modal-mask" id="workModalMask">
+    <div class="modal" id="workModal">
+      <div class="modal-head">
+        <span class="modal-title" id="modalTitle">录入工作</span>
+        <button class="icon-btn" data-close>&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- 轻提示 -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/store.js"></script>
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/kanban.js"></script>
+  <script src="/static/js/stats.js"></script>
+  <script src="/static/js/modal.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

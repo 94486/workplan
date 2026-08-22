@@ -1,0 +1,17 @@
+# 一键启动示例：docker compose up -d
+services:
+  work-dashboard:
+    build: .
+    container_name: work-dashboard
+    ports:
+      - "8000:8000"
+    environment:
+      - WORK_DB_PATH=/data/works.db
+      # 首次启动写入演示数据：设置为 1 后删除该配置即可去掉
+      - SEED_DEMO=0
+    volumes:
+      - work-data:/data
+    restart: unless-stopped
+
+volumes:
+  work-data:
