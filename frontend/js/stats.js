@@ -214,6 +214,146 @@ const Stats = (() => {
     renderPeriods();
   }
 
+  /* ---------- 近 6 个月汇总对比表 ---------- */
+  function renderMonthlyTable() {
+    const works = Store.getWorks();
+    if (!works) return;
+    const now = new Date();
+    const rows = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear(), m = d.getMonth();
+      const from = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const to = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const done = works.filter((w) => w.status === "done" && w.completed_date >= from && w.completed_date <= to);
+      const hours = done.reduce((s, w) => s + (w.actual_duration_hours || 0), 0);
+      const income = done.reduce((s, w) => s + (w.actual_income || 0), 0);
+      const hourly = hours > 0 ? income / hours : 0;
+      const isCurrent = i === 0;
+      rows.push({ label: `${m + 1}月`, year: y, count: done.length, hours, income, hourly, isCurrent });
+    }
+
+    const maxHours = Math.max(...rows.map((r) => r.hours), 1);
+    const maxIncome = Math.max(...rows.map((r) => r.income), 1);
+    const totalCount = rows.reduce((s, r) => s + r.count, 0);
+    const totalHours = rows.reduce((s, r) => s + r.hours, 0);
+    const totalIncome = rows.reduce((s, r) => s + r.income, 0);
+    const avgHourly = totalHours > 0 ? totalIncome / totalHours : 0;
+
+    const html = `
+      <div class="panel table-panel">
+        <div class="panel-title">近 6 个月汇总对比<span class="panel-note">完成项 · 工时 · 收入 · 小时工资</span></div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>月份</th>
+              <th class="num">完成项</th>
+              <th class="num">总工时</th>
+              <th class="num">工时占比</th>
+              <th class="num">总收入</th>
+              <th class="num">收入占比</th>
+              <th class="num">小时工资</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r) => `
+              <tr class="${r.isCurrent ? "row-current" : ""}">
+                <td><b>${r.label}</b><small class="row-year">${r.year}</small></td>
+                <td class="num">${r.count}</td>
+                <td class="num">${fmtNum(Math.round(r.hours * 10) / 10)} h</td>
+                <td class="num"><div class="cell-bar"><div class="cell-bar-fill cb-hours" style="width:${(r.hours / maxHours * 100).toFixed(1)}%"></div></div></td>
+                <td class="num">${fmtMoney(r.income)}</td>
+                <td class="num"><div class="cell-bar"><div class="cell-bar-fill cb-income" style="width:${(r.income / maxIncome * 100).toFixed(1)}%"></div></div></td>
+                <td class="num"><b>${fmtMoney(r.hourly)}</b></td>
+              </tr>
+            `).join("")}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>合计 / 均值</td>
+              <td class="num">${totalCount}</td>
+              <td class="num">${fmtNum(Math.round(totalHours * 10) / 10)} h</td>
+              <td class="num">—</td>
+              <td class="num">${fmtMoney(totalIncome)}</td>
+              <td class="num">—</td>
+              <td class="num">${fmtMoney(avgHourly)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+    return html;
+  }
+
+  /* ---------- 工作类型效率对比表 ---------- */
+  function renderTypeEfficiencyTable(summary) {
+    const works = Store.getWorks();
+    if (!works || !summary) return "";
+    const g = summary.groups; // [regular, other]
+    const types = [
+      { key: "regular", label: "常规工作", color: "var(--regular)", data: g[0] },
+      { key: "other", label: "其他工作", color: "var(--other)", data: g[1] },
+    ];
+
+    const rows = types.map((t) => {
+      const typeWorks = works.filter((w) => w.work_type === t.key);
+      const done = typeWorks.filter((w) => w.status === "done");
+      const pending = typeWorks.filter((w) => w.status === "pending");
+      const total = typeWorks.length;
+      const rate = total > 0 ? done.length / total : 0;
+      const avgHours = done.length > 0 ? t.data.hours / done.length : 0;
+      const avgIncome = done.length > 0 ? t.data.income / done.length : 0;
+      return { ...t, done: done.length, pending: pending.length, total, rate, avgHours, avgIncome };
+    });
+
+    const html = `
+      <div class="panel table-panel">
+        <div class="panel-title">工作类型效率对比<span class="panel-note">完成率 · 平均产出 · 小时工资</span></div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>类型</th>
+              <th class="num">已完成</th>
+              <th class="num">待完成</th>
+              <th class="num">完成率</th>
+              <th class="num">总工时</th>
+              <th class="num">总收入</th>
+              <th class="num">平均工时/项</th>
+              <th class="num">平均收入/项</th>
+              <th class="num">小时工资</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r) => `
+              <tr>
+                <td><span class="type-dot" style="background:${r.color}"></span><b>${r.label}</b></td>
+                <td class="num">${r.done}</td>
+                <td class="num">${r.pending}</td>
+                <td class="num">
+                  <div class="rate-cell">
+                    <div class="rate-bar"><div class="rate-bar-fill" style="width:${(r.rate * 100).toFixed(0)}%;background:${r.color}"></div></div>
+                    <span>${(r.rate * 100).toFixed(0)}%</span>
+                  </div>
+                </td>
+                <td class="num">${fmtNum(Math.round(r.data.hours * 10) / 10)} h</td>
+                <td class="num">${fmtMoney(r.data.income)}</td>
+                <td class="num">${fmtNum(Math.round(r.avgHours * 10) / 10)} h</td>
+                <td class="num">${fmtMoney(r.avgIncome)}</td>
+                <td class="num"><b>${fmtMoney(r.data.hourly_rate)}</b></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>`;
+    return html;
+  }
+
+  function renderTables(summary) {
+    const container = document.getElementById("statsTables");
+    if (!container) return;
+    container.innerHTML = renderMonthlyTable() + renderTypeEfficiencyTable(summary);
+  }
+
   return {
     /** 渲染整个统计视图（进入该 Tab 时调用） */
     async render() {
@@ -221,6 +361,7 @@ const Stats = (() => {
       if (!summary) return;
       renderReport(summary);
       renderSub();
+      renderTables(summary);
       await renderCharts();
     },
 

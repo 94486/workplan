@@ -32,6 +32,13 @@ const API = (() => {
     completeWork: (id, data) => request("POST", `/api/works/${id}/complete`, data),
     reopenWork: (id) => request("POST", `/api/works/${id}/reopen`),
 
+    /** 预设接口（常规工作 / 其他工作各自独立） */
+    listPresets: (work_type = "regular") =>
+      request("GET", `/api/presets${work_type ? `?work_type=${work_type}` : ""}`),
+    createPreset: (data) => request("POST", "/api/presets", data),
+    updatePreset: (id, data) => request("PUT", `/api/presets/${id}`, data),
+    deletePreset: (id) => request("DELETE", `/api/presets/${id}`),
+
     /** 统计接口 */
     getSummary: () => request("GET", "/api/stats/summary"),
     getDaily: (days = 14) => request("GET", `/api/stats/daily?days=${days}`),

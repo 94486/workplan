@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from backend import database as db
-from backend.routers import works, stats, data_io
+from backend.routers import works, stats, data_io, presets
 
 
 @asynccontextmanager
@@ -50,6 +50,7 @@ app = FastAPI(
 app.include_router(works.router)
 app.include_router(stats.router)
 app.include_router(data_io.router)
+app.include_router(presets.router)
 
 
 @app.get("/api/health")
@@ -85,8 +86,8 @@ def _open_browser(port: int) -> None:
 def main() -> None:
     """入口：供 `python -m backend.main` 或打包后的 exe 调用。"""
     port = int(os.environ.get("PORT", "8000"))
-    # Docker 部署需监听 0.0.0.0；本地源码运行可设 HOST=127.0.0.1 仅本机访问
-    host = os.environ.get("HOST", "0.0.0.0")
+    # Docker 部署需监听 0.0.0.0；本地默认仅监听 127.0.0.1，避免数据暴露到局域网
+    host = os.environ.get("HOST", "127.0.0.1")
     print("=" * 56)
     print("  个人工作管理工作台")
     print(f"  访问地址: http://127.0.0.1:{port}")

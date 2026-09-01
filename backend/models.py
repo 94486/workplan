@@ -57,3 +57,21 @@ class WorkComplete(BaseModel):
 class WorkReopen(BaseModel):
     """重新打开（恢复为待完成）。"""
     pass
+
+
+class PresetCreate(BaseModel):
+    """新建预设请求体（常规工作和其他工作各自独立维护预设）。"""
+    name: str = Field(..., min_length=1, max_length=100, description="预设名称")
+    work_type: str = Field("regular", pattern="^(regular|other)$", description="工作类型")
+    duration_hours: float = Field(0, ge=0, le=10000, description="花费时长(小时)")
+    expected_income: float = Field(0, ge=0, le=10_000_000, description="预期收入(元)")
+    notes: str = Field("", max_length=2000, description="备注")
+
+
+class PresetUpdate(BaseModel):
+    """编辑预设请求体（全部可选）。"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    work_type: Optional[str] = Field(None, pattern="^(regular|other)$")
+    duration_hours: Optional[float] = Field(None, ge=0, le=10000)
+    expected_income: Optional[float] = Field(None, ge=0, le=10_000_000)
+    notes: Optional[str] = Field(None, max_length=2000)

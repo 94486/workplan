@@ -227,8 +227,29 @@ const App = (() => {
 
   function renderHeroBanner() {
     const now = new Date();
-    const greet = "为人民服务";
-    document.getElementById("heroGreet").textContent = greet;
+    const greetEl = document.getElementById("heroGreet");
+    const NORMAL_TEXT = "为人民服务";
+    const EGG_TEXT = "我是一台无情的赚钱机器 💰";
+
+    // 彩蛋：点击切换文案
+    if (!greetEl.dataset.bound) {
+      greetEl.dataset.bound = "1";
+      greetEl.style.cursor = "pointer";
+      greetEl.title = "点击有惊喜";
+      greetEl.addEventListener("click", () => {
+        const isEgg = greetEl.dataset.egg === "1";
+        greetEl.dataset.egg = isEgg ? "0" : "1";
+        greetEl.classList.toggle("hero-egg", !isEgg);
+        greetEl.textContent = isEgg ? NORMAL_TEXT : EGG_TEXT;
+        // 切换弹出动画
+        greetEl.classList.remove("hero-pop");
+        void greetEl.offsetWidth;
+        greetEl.classList.add("hero-pop");
+        setTimeout(() => greetEl.classList.remove("hero-pop"), 550);
+      });
+    }
+    greetEl.textContent = greetEl.dataset.egg === "1" ? EGG_TEXT : NORMAL_TEXT;
+    if (greetEl.dataset.egg === "1") greetEl.classList.add("hero-egg");
 
     const wd = now.getDay();
     const left = wd === 0 ? 0 : 6 - wd; // 距周末剩余天数（周日=0）

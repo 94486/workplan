@@ -59,6 +59,19 @@ CREATE TABLE IF NOT EXISTS works (
 CREATE INDEX IF NOT EXISTS idx_works_planned_date ON works(planned_date);
 CREATE INDEX IF NOT EXISTS idx_works_status        ON works(status);
 CREATE INDEX IF NOT EXISTS idx_works_work_type     ON works(work_type);
+
+CREATE TABLE IF NOT EXISTS presets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT    NOT NULL,                    -- 预设名称（展示用，通常同工作名）
+    work_type       TEXT    NOT NULL DEFAULT 'regular',  -- 类型: regular=常规工作, other=其他工作
+    duration_hours  REAL    NOT NULL DEFAULT 0,          -- 花费时长(小时)
+    expected_income REAL    NOT NULL DEFAULT 0,          -- 预期收入(元)
+    notes           TEXT    NOT NULL DEFAULT '',         -- 备注
+    created_at      TEXT    NOT NULL,
+    updated_at      TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_presets_work_type ON presets(work_type);
 """
 
 

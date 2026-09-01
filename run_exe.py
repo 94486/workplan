@@ -74,6 +74,7 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "app.log"
 
 _uvicorn_server: uvicorn.Server | None = None
+_uvicorn_thread: threading.Thread | None = None
 _tray_icon: "pystray.Icon | None" = None
 
 
@@ -178,7 +179,7 @@ def _open_browser(_icon=None, _item=None) -> None:
 
 def _start_uvicorn() -> uvicorn.Server:
     """在后台线程启动 uvicorn。"""
-    global _uvicorn_server
+    global _uvicorn_server, _uvicorn_thread
     config = uvicorn.Config(
         app,
         host=HOST,
@@ -189,6 +190,7 @@ def _start_uvicorn() -> uvicorn.Server:
     server = uvicorn.Server(config)
     _uvicorn_server = server
     t = threading.Thread(target=server.run, daemon=True, name="uvicorn-server")
+    _uvicorn_thread = t
     t.start()
     return server
 
@@ -210,17 +212,30 @@ def _on_open(_icon, _item) -> None:
 
 
 def _on_exit(icon, _item) -> None:
-    """右键菜单 - 退出：停止服务并退出程序。"""
-    global _uvicorn_server
+    """右键菜单 - 退出：优雅停止服务，强制终止进程，不留残余。"""
+    global _uvicorn_server, _uvicorn_thread
+    logger = logging.getLogger("WorkDashboard")
+    logger.info("收到退出指令，正在清理...")
+
+    # 1. 通知 uvicorn 优雅停止
     if _uvicorn_server is not None:
         _uvicorn_server.should_exit = True
-        # 通知 uvicorn 立即结束；join 最多等 3 秒
         _uvicorn_server.force_exit = True
-        for _ in range(30):
-            if _uvicorn_server.started:
-                break
-            time.sleep(0.1)
-    icon.stop()
+
+    # 2. 等待 uvicorn 线程结束（最多 3 秒），超时则强制
+    if _uvicorn_thread is not None and _uvicorn_thread.is_alive():
+        _uvicorn_thread.join(timeout=3.0)
+        if _uvicorn_thread.is_alive():
+            logger.warning("uvicorn 线程未在 3 秒内退出，将强制终止")
+
+    # 3. 停止托盘图标消息循环
+    try:
+        icon.stop()
+    except Exception:
+        pass
+
+    # 4. 强制退出进程（os._exit 不触发 atexit，直接终止，确保无残留线程）
+    logger.info("程序已退出")
     os._exit(0)
 
 
@@ -237,7 +252,7 @@ def _setup_tray(logger: logging.Logger) -> None:
             time.sleep(60)
 
     menu = pystray.Menu(
-        pystray.MenuItem("打开工作台", _on_open),
+        pystray.MenuItem("打开工作台", _on_open, default=True),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("退出", _on_exit),
     )
@@ -247,7 +262,8 @@ def _setup_tray(logger: logging.Logger) -> None:
         "个人工作管理工作台",
         menu,
     )
-    icon.on_activate = _open_browser  # 左键单击/双击打开页面
+    icon.on_activate = _open_browser  # 左键单击/双击打开页面（双保险）
+    icon.on_double_click = _open_browser  # 双击也打开
     _tray_icon = icon
     logger.info("系统托盘图标已创建")
     icon.run()

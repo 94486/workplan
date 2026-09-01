@@ -69,51 +69,30 @@ const Modal = (() => {
     return isNaN(v) || v < 0 ? 0 : v;
   }
 
-  /* ---------- 录入记忆（按工作类型独立，localStorage） ----------
-   * 「常规工作」与「其他工作」各自独立记忆上次填写内容（名称/时长/预期收入/备注），
-   * 互不影响；新建弹窗中切换类型时，当前输入自动存回原类型，并载入新类型的记忆。
-   * 计划完成日期始终更新为今天（或点击的日期格）。
-   * 输入即记忆：填写过程中实时保存，未点保存/中途关闭也能在下一次自动载入。 */
-  const LAST_KEYS = { regular: "wd_last_regular", other: "wd_last_other" };
-  const typeLabel = (t) => (t === "regular" ? "常规工作" : "其他工作");
-
-  function loadLast(type) {
-    try {
-      const v = JSON.parse(localStorage.getItem(LAST_KEYS[type]) || "null");
-      return v && typeof v === "object" ? v : null;
-    } catch (e) { return null; }
-  }
-
-  function saveLast(type, data) {
-    try { localStorage.setItem(LAST_KEYS[type], JSON.stringify(data)); } catch (e) { /* 忽略 */ }
-  }
-
-  function clearLast(type) {
-    try { localStorage.removeItem(LAST_KEYS[type]); } catch (e) { /* 忽略 */ }
-  }
-
   /* ---------- 1. 新建工作 ---------- */
   function openCreate(defaults = {}) {
     const initialType = defaults.work_type || "regular";
-    // 预填：显式传入的字段优先（如日期格点击），其余取自该类型的上次记忆
-    const last = loadLast(initialType) || {};
     const merged = {
       work_type: initialType,
-      name: defaults.name || last.name || "",
-      duration_hours: defaults.duration_hours ?? last.duration_hours ?? "",
+      name: defaults.name || "",
+      duration_hours: defaults.duration_hours ?? "",
       planned_date: defaults.planned_date || todayISO(),
-      expected_income: defaults.expected_income ?? last.expected_income ?? "",
-      notes: defaults.notes ?? last.notes ?? "",
+      expected_income: defaults.expected_income ?? "",
+      notes: defaults.notes ?? "",
     };
-    const restored = !!(last.name || last.notes);
-    const dateIsToday = merged.planned_date === todayISO();
 
     open(`
       <div class="form-grid">
         ${typeSegHTML(merged.work_type)}
-        <div class="form-item full restore-hint" id="restoreHint" ${restored ? "" : "hidden"}>
-          <span id="restoreHintText">🧠 已载入上次「${typeLabel(initialType)}」的填写内容${dateIsToday ? "，日期已更新为今天" : ""}</span>
-          <button class="btn btn-ghost btn-xs" id="btnClearLast" type="button">清空重填</button>
+        <div class="form-item full" id="presetRow">
+          <label id="presetLabel">快速预设（常规工作）</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="input" id="fPreset" style="flex:1">
+              <option value="">选择预设快速填入…</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="btnSavePreset" type="button">☆ 存为预设</button>
+            <button class="btn btn-ghost btn-sm" id="btnDelPreset" type="button" disabled>删除</button>
+          </div>
         </div>
         <div class="form-item full">
           <label>工作名称 *</label>
@@ -143,62 +122,95 @@ const Modal = (() => {
 
     const curType = () => body().querySelector("#fType").value;
 
-    // 把表单当前内容保存到指定类型的记忆
-    function snapshotFor(type) {
-      saveLast(type, {
-        name: body().querySelector("#fName").value.trim(),
-        duration_hours: numVal("fDur"),
-        expected_income: numVal("fIncome"),
-        notes: body().querySelector("#fNotes").value.trim(),
-      });
+    /* ---------- 预设功能（常规工作 / 其他工作） ---------- */
+    let presets = [];
+    const presetRow = () => body().querySelector("#presetRow");
+    const presetSel = () => body().querySelector("#fPreset");
+    const delPresetBtn = () => body().querySelector("#btnDelPreset");
+    const presetLabel = () => body().querySelector("#presetLabel");
+
+    // 更新预设标签文字
+    function updatePresetLabel(type) {
+      const el = presetLabel();
+      if (el) el.textContent = type === "regular" ? "快速预设（常规工作）" : "快速预设（其他工作）";
     }
 
-    // 载入指定类型的记忆到表单，并同步提示条
-    function applyLast(type) {
-      const m = loadLast(type) || {};
-      body().querySelector("#fName").value = m.name || "";
-      body().querySelector("#fDur").value = m.duration_hours ?? "";
-      body().querySelector("#fIncome").value = m.expected_income ?? "";
-      body().querySelector("#fNotes").value = m.notes || "";
-      const hint = body().querySelector("#restoreHint");
-      if (!hint) return;
-      if (m.name || m.notes) {
-        hint.hidden = false;
-        body().querySelector("#restoreHintText").textContent = `🧠 已载入上次「${typeLabel(type)}」的填写内容`;
-      } else {
-        hint.hidden = true;
+    // 拉取当前类型的预设列表并刷新下拉
+    async function loadPresets() {
+      const type = curType();
+      try {
+        presets = await API.listPresets(type);
+        const sel = presetSel();
+        if (!sel) return;
+        sel.innerHTML =
+          '<option value="">选择预设快速填入…</option>' +
+          presets.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+        delPresetBtn().disabled = true;
+      } catch (e) { /* 预设加载失败不影响录入 */ }
+    }
+
+    // 用预设数据填充表单（不覆盖计划日期）
+    function applyPreset(p) {
+      if (!p) return;
+      body().querySelector("#fName").value = p.name || "";
+      body().querySelector("#fDur").value = p.duration_hours ?? "";
+      body().querySelector("#fIncome").value = p.expected_income ?? "";
+      body().querySelector("#fNotes").value = p.notes || "";
+    }
+
+    // 选择预设：自动填入字段
+    presetSel().addEventListener("change", () => {
+      const id = parseInt(presetSel().value, 10);
+      delPresetBtn().disabled = !presetSel().value;
+      if (!id) return;
+      const p = presets.find((x) => x.id === id);
+      if (p) {
+        applyPreset(p);
+        Toast.show(`已填入预设「${p.name}」`, "ok");
       }
-    }
-
-    // 切换类型：当前输入存回原类型 → 载入新类型的记忆（两类别互不干扰）
-    bindTypeSeg((prev, next) => {
-      snapshotFor(prev);
-      applyLast(next);
     });
 
-    // 记忆提示条：一键清空（仅清除当前类型的记忆，下次不再自动载入）
-    const clearBtn = body().querySelector("#btnClearLast");
-    if (clearBtn) {
-      clearBtn.addEventListener("click", () => {
-        clearLast(curType());
-        ["fName", "fDur", "fIncome", "fNotes"].forEach((id) => {
-          const el = body().querySelector(`#${id}`);
-          if (el) el.value = "";
+    // 把当前表单内容存为新预设（名称取工作名称，类型取当前类型）
+    body().querySelector("#btnSavePreset").addEventListener("click", async () => {
+      const name = body().querySelector("#fName").value.trim();
+      if (!name) return Toast.show("请先输入工作名称，再存为预设", "err");
+      try {
+        const p = await API.createPreset({
+          name,
+          work_type: curType(),
+          duration_hours: numVal("fDur"),
+          expected_income: numVal("fIncome"),
+          notes: body().querySelector("#fNotes").value.trim(),
         });
-        body().querySelector("#restoreHint").hidden = true;
-        Toast.show(`已清空「${typeLabel(curType())}」的记忆，下次不再自动载入`, "ok");
-      });
-    }
-
-    // 输入即记忆：实时保存到当前类型，未保存/中途关闭也能保留
-    ["fName", "fDur", "fIncome", "fNotes"].forEach((id) => {
-      const el = body().querySelector(`#${id}`);
-      if (el) el.addEventListener("input", () => snapshotFor(curType()));
+        await loadPresets();
+        presetSel().value = String(p.id);
+        delPresetBtn().disabled = false;
+        Toast.show(`已保存预设「${p.name}」`, "ok");
+      } catch (e) { Toast.show(e.message, "err"); }
     });
 
-    if (restored) {
-      Toast.show(`已载入上次「${typeLabel(initialType)}」的填写内容${dateIsToday ? "，日期已更新为今天" : ""} ✨`, "ok");
-    }
+    // 删除当前选中的预设
+    delPresetBtn().addEventListener("click", async () => {
+      const id = parseInt(presetSel().value, 10);
+      if (!id) return;
+      const p = presets.find((x) => x.id === id);
+      if (!confirm(`确定删除预设「${p ? p.name : "#" + id}」吗？`)) return;
+      try {
+        await API.deletePreset(id);
+        await loadPresets();
+        Toast.show("预设已删除", "ok");
+      } catch (e) { Toast.show(e.message, "err"); }
+    });
+
+    // 初始加载当前类型的预设
+    updatePresetLabel(initialType);
+    loadPresets();
+
+    // 切换类型：预设列表切换到对应类型，各自独立
+    bindTypeSeg((prev, next) => {
+      updatePresetLabel(next);
+      loadPresets();
+    });
 
     document.getElementById("btnSubmit").addEventListener("click", async () => {
       const name = document.getElementById("fName").value.trim();
@@ -216,13 +228,6 @@ const Modal = (() => {
       };
       try {
         await API.createWork(payload);
-        // 按类型独立记忆，供下次录入自动载入
-        saveLast(workType, {
-          name: payload.name,
-          duration_hours: payload.duration_hours,
-          expected_income: payload.expected_income,
-          notes: payload.notes,
-        });
         close();
         Toast.show("工作已录入 ✔", "ok");
         await Store.refresh();

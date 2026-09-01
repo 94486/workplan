@@ -50,6 +50,7 @@ const Kanban = (() => {
     const isRegular = w.work_type === "regular";
     const isDone = w.status === "done";
     const overdue = !isDone && isOverdue(w, todayStr);
+    const delayed = isDone && w.completed_date && w.planned_date && w.completed_date > w.planned_date;
     const typeTag = isRegular ? "常规" : "其他";
     const hours = isDone
       ? (w.actual_duration_hours ?? w.duration_hours)
@@ -59,13 +60,14 @@ const Kanban = (() => {
       : w.expected_income;
 
     return `
-    <div class="work-card type-${w.work_type} ${isDone ? "done" : ""} ${overdue ? "overdue" : ""}"
+    <div class="work-card type-${w.work_type} ${isDone ? "done" : ""} ${overdue ? "overdue" : ""} ${delayed ? "delayed" : ""}"
          data-id="${w.id}" title="${esc(w.notes || w.name)}">
       ${!isDone ? '<button class="quick-done" data-quick="1" title="一键完成（按计划值 / 今天）">✓</button>' : ""}
       <div class="card-top">
         <span class="type-tag ${isRegular ? "tag-regular" : "tag-other"}">${typeTag}</span>
         <span class="card-name">${esc(w.name)}</span>
         ${isDone ? '<span class="done-badge">✓ 已完成</span>' : ""}
+        ${delayed ? '<span class="delayed-badge">延迟</span>' : ""}
         ${overdue ? '<span class="overdue-badge">逾期</span>' : ""}
       </div>
       <div class="card-meta">
@@ -81,6 +83,7 @@ const Kanban = (() => {
     const isRegular = w.work_type === "regular";
     const isDone = w.status === "done";
     const overdue = !isDone && isOverdue(w, todayStr);
+    const delayed = isDone && w.completed_date && w.planned_date && w.completed_date > w.planned_date;
     const hours = isDone
       ? (w.actual_duration_hours ?? w.duration_hours)
       : w.duration_hours;
@@ -89,35 +92,36 @@ const Kanban = (() => {
       : w.expected_income;
 
     return `
-    <div class="work-card month-card type-${w.work_type} ${isDone ? "done" : ""} ${overdue ? "overdue" : ""}"
+    <div class="work-card month-card type-${w.work_type} ${isDone ? "done" : ""} ${overdue ? "overdue" : ""} ${delayed ? "delayed" : ""}"
          data-id="${w.id}" title="${esc(w.notes || w.name)}">
       ${!isDone ? '<button class="quick-done" data-quick="1" title="一键完成">✓</button>' : ""}
       <span class="mc-name">${esc(w.name)}</span>
       ${overdue ? '<span class="overdue-badge">逾期</span>' : ""}
+      ${delayed ? '<span class="delayed-badge">迟</span>' : ""}
       <span class="mc-meta">⏱${hours}h · ¥${income.toLocaleString()}</span>
     </div>`;
   }
 
   /* ---------- 汇总条：本周 / 本月完成情况 + 全局待办/逾期 ---------- */
   function renderSummary(todayStr) {
-    let lo, hi, label, key;
+    let lo, hi, label, scopeLabel;
     if (viewMode === "month") {
       const y = baseDate.getFullYear();
       const m = baseDate.getMonth();
       lo = `${y}-${String(m + 1).padStart(2, "0")}-01`;
       hi = `${y}-${String(m + 1).padStart(2, "0")}-${new Date(y, m + 1, 0).getDate()}`;
       label = "本月";
-      key = "completed_date";
+      scopeLabel = "📅 本月概览";
     } else {
       lo = fmt(baseDate);
       hi = fmt(new Date(baseDate.getTime() + 6 * DAY_MS));
       label = "本周";
-      key = "completed_date";
+      scopeLabel = "📆 本周概览";
     }
     const inScope = (dateStr) => dateStr >= lo && dateStr <= hi;
 
     const doneScope = Store.getWorks().filter(
-      (w) => w.status === "done" && inScope(w[key] || "")
+      (w) => w.status === "done" && inScope(w.completed_date || "")
     );
     const scopeHours = doneScope.reduce((s, w) => s + (w.actual_duration_hours || 0), 0);
     const scopeIncome = doneScope.reduce((s, w) => s + (w.actual_income || 0), 0);
@@ -128,18 +132,18 @@ const Kanban = (() => {
       (w) => w.status === "done" && w.completed_date === todayStr
     ).length;
 
-    const item = (l, v, cls = "") =>
-      `<div class="ws-item ${cls}"><span class="ws-label">${l}</span><span class="ws-value">${v}</span></div>`;
+    const item = (l, v, cls = "", icon = "") =>
+      `<div class="ws-item ${cls}"><span class="ws-label">${icon}${l}</span><span class="ws-value">${v}</span></div>`;
 
     document.getElementById("weekSummary").innerHTML = `
-      <span class="ws-scope">${label}</span>
-      ${item("今日待办", todayPending, todayPending ? "ws-warn" : "")}
-      ${item("今日完成", todayDone, todayDone ? "ws-ok" : "")}
-      ${item(`${label}完成`, doneScope.length + " 项")}
-      ${item(`${label}工时`, scopeHours.toFixed(1) + " h")}
-      ${item(`${label}收入`, "¥ " + Math.round(scopeIncome).toLocaleString())}
-      ${item("待办合计", pendingAll.length + " 项")}
-      ${item("已逾期", overdueAll.length + " 项", overdueAll.length ? "ws-danger" : "ws-ok")}
+      <span class="ws-scope ws-scope-click" title="点击切换周/月视图">${scopeLabel}<span class="ws-scope-hint">点击切换 ›</span></span>
+      ${item("今日待办", todayPending, todayPending ? "ws-warn" : "ws-muted", "⏰ ")}
+      ${item("今日完成", todayDone, todayDone ? "ws-ok" : "ws-muted", "✅ ")}
+      ${item(`${label}完成`, doneScope.length + " 项", "ws-done", "📋 ")}
+      ${item(`${label}工时`, scopeHours.toFixed(1) + " h", "ws-hours", "⏱ ")}
+      ${item(`${label}收入`, "¥" + Math.round(scopeIncome).toLocaleString(), "ws-income", "💰 ")}
+      ${item("待办合计", pendingAll.length + " 项", "ws-pending", "📝 ")}
+      ${item("已逾期", overdueAll.length + " 项", overdueAll.length ? "ws-danger" : "ws-muted", "⚠️ ")}
     `;
   }
 
@@ -156,21 +160,25 @@ const Kanban = (() => {
       const items = Store.worksOn(dStr);
       const isToday = dStr === todayStr;
       const isPast = dStr < todayStr;
+      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
       const doneList = items.filter((w) => w.status === "done");
       const pendingList = items.filter((w) => w.status === "pending");
       const actualHours = doneList.reduce((s, w) => s + (w.actual_duration_hours || 0), 0);
       const income = doneList.reduce((s, w) => s + (w.actual_income || 0), 0);
       const planHours = pendingList.reduce((s, w) => s + (w.duration_hours || 0), 0);
+      const totalHours = planHours + actualHours;
+      // 工时进度条：已完成工时 / 总工时
+      const progress = totalHours > 0 ? Math.min(100, (actualHours / totalHours) * 100) : 0;
       const cards = [...pendingList, ...doneList]
         .map((w) => cardHTML(w, todayStr)).join("");
 
       html += `
-      <div class="kanban-day ${isToday ? "today" : ""} ${isPast ? "past-day" : ""}" data-date="${dStr}">
+      <div class="kanban-day ${isToday ? "today" : ""} ${isPast ? "past-day" : ""} ${isWeekend ? "weekend-col" : ""}" data-date="${dStr}">
         <div class="day-head">
           <div>
-            <div class="day-week">周${WEEK[d.getDay()]}${isToday ? " · 今天" : ""}</div>
-            <div class="day-date">${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}</div>
+            <div class="day-week">周${WEEK[d.getDay()]}${isToday ? ' · <span class="today-tag">今天</span>' : ""}</div>
+            <div class="day-date ${isToday ? "today-date" : ""}">${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}</div>
           </div>
           <div class="day-counts">
             ${pendingList.length ? `<span class="chip chip-pending">待 ${pendingList.length}</span>` : ""}
@@ -183,7 +191,8 @@ const Kanban = (() => {
         </div>
         <div class="day-totals">
           ${items.length
-            ? `计划 ${planHours}h · 实际 ${actualHours}h<br/>收入 ¥ ${income.toLocaleString()}`
+            ? `<div class="hours-bar"><div class="hours-bar-fill" style="width:${progress}%"></div></div>
+               <div class="hours-text">计划 ${planHours}h · 实际 ${actualHours}h · 收入 ¥${income.toLocaleString()}</div>`
             : "—"}
         </div>
       </div>`;
@@ -209,6 +218,20 @@ const Kanban = (() => {
     const gridStart = new Date(firstDay);
     gridStart.setDate(1 - ((firstDay.getDay() + 6) % 7));
 
+    // 计算当月最大工时，用于迷你条比例
+    let maxDayHours = 0;
+    const dayHoursMap = {};
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(gridStart.getTime() + i * DAY_MS);
+      const dStr = fmt(d);
+      if (d.getMonth() === month) {
+        const items = Store.worksOn(dStr);
+        const h = items.reduce((s, w) => s + (w.status === "done" ? (w.actual_duration_hours || 0) : (w.duration_hours || 0)), 0);
+        dayHoursMap[dStr] = h;
+        if (h > maxDayHours) maxDayHours = h;
+      }
+    }
+
     let html = `<div class="month-head">${WEEK.map((w) => `<span class="month-head-cell">周${w}</span>`).join("")}</div>`;
 
     for (let i = 0; i < 42; i++) {
@@ -223,6 +246,8 @@ const Kanban = (() => {
       const doneList = items.filter((w) => w.status === "done");
       const pendingList = items.filter((w) => w.status === "pending");
       const overdueCount = pendingList.filter((w) => isOverdue(w, todayStr)).length;
+      const dayHours = dayHoursMap[dStr] || 0;
+      const barPct = maxDayHours > 0 ? (dayHours / maxDayHours) * 100 : 0;
 
       const all = [...pendingList, ...doneList];
       const shown = all.slice(0, MONTH_MAX_SHOW);
@@ -234,6 +259,7 @@ const Kanban = (() => {
 
       html += `
       <div class="kanban-day month ${inMonth ? "" : "out-month"} ${inMonth && isWeekend ? "weekend" : ""} ${isToday ? "today" : ""} ${isPast ? "past-day" : ""}" data-date="${dStr}">
+        ${isToday ? '<div class="today-ring"></div>' : ""}
         <div class="month-day-head">
           <span class="month-date">${d.getDate()}</span>
           <span class="month-weekday">周${WEEK[d.getDay()]}</span>
@@ -245,6 +271,7 @@ const Kanban = (() => {
         <div class="day-body month-body">
           ${cards || (inMonth ? `<div class="month-empty">＋</div>` : "")}
         </div>
+        ${inMonth && dayHours > 0 ? `<div class="month-mini-bar"><div class="mmb-fill" style="width:${barPct}%"></div><span class="mmb-text">${dayHours}h</span></div>` : ""}
       </div>`;
     }
     board.innerHTML = html;
@@ -369,6 +396,12 @@ const Kanban = (() => {
       document.querySelectorAll(".view-switch .vs-btn").forEach((btn) =>
         btn.addEventListener("click", () => setView(btn.dataset.mode))
       );
+      // 点击「本周概览/本月概览」切换视图
+      document.getElementById("weekSummary").addEventListener("click", (e) => {
+        if (e.target.closest(".ws-scope-click")) {
+          setView(viewMode === "week" ? "month" : "week");
+        }
+      });
       // 数据变更后自动重绘
       Store.subscribe(render);
     },
