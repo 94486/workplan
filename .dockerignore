@@ -29,6 +29,8 @@ _pack_*.png
 # 示例数据与测试脚本（镜像运行不需要）
 example
 tools
+test_*.py
+*.db
 
 # 文档（镜像内无需携带）
 docs
