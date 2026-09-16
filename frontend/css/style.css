@@ -37,7 +37,7 @@
   --card-grad: linear-gradient(180deg, rgba(20,30,52,.88), rgba(14,20,36,.92));
   --out-month-bg: rgba(10, 15, 28, .5);
   --shadow-heavy: 0 20px 60px rgba(0,0,0,.5), 0 0 30px rgba(96,165,250,.07);
-  --shadow-card: 0 4px 14px rgba(0,0,0,.3), 0 0 0 1px rgba(96,165,250,.04);
+  --shadow-card: 0 1px 2px rgba(0,0,0,.30), 0 6px 16px rgba(0,0,0,.22), 0 0 0 1px rgba(96,165,250,.05);
   --glow-a: rgba(96, 165, 250, .09);
   --glow-b: rgba(129, 140, 248, .09);
   --star: rgba(140, 180, 255, .50);
@@ -45,7 +45,7 @@
   --on-accent: #0a1628;
   --hl: rgba(255, 255, 255, .05);
   --ease: cubic-bezier(.22, .61, .36, 1);
-  --shadow-float: 0 14px 34px rgba(0,0,0,.42), 0 0 22px rgba(96,165,250,.08);
+  --shadow-float: 0 2px 5px rgba(0,0,0,.24), 0 14px 30px rgba(0,0,0,.34), 0 0 0 1px rgba(96,165,250,.09);
   --num-font: "Cascadia Code", Consolas, "JetBrains Mono", monospace;
 }
 
@@ -443,12 +443,12 @@ body::after {
   flex: 1; min-height: 120px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-size: 12px; color: var(--text-2); text-align: center; margin-top: 0;
-  border: 1px dashed var(--line); border-radius: 8px; padding: 10px 4px;
+  border: 1px dashed transparent; border-radius: 10px; padding: 10px 4px;
   transition: all .18s var(--ease);
 }
-.day-empty::before { content: "＋"; display: block; font-size: 16px; margin-bottom: 3px; color: var(--line-strong); }
-.kanban-day:hover .day-empty { border-color: var(--accent); color: var(--accent); }
-.kanban-day:hover .day-empty::before { color: var(--accent); }
+.day-empty::before { content: "＋"; display: block; font-size: 20px; font-weight: 300; margin-bottom: 5px; color: var(--text-2); opacity: .55; }
+.kanban-day:hover .day-empty { border-color: var(--line-strong); color: var(--accent); }
+.kanban-day:hover .day-empty::before { color: var(--accent); opacity: 1; }
 .day-totals {
   margin-top: auto; padding-top: 6px; border-top: 1px dashed var(--line);
   font-size: 11px; color: var(--text-2); font-family: var(--mono);
@@ -1337,21 +1337,21 @@ body::after {
 }
 .kanban-day.month.today {
   border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(96,165,250,.15);
+  box-shadow: 0 1px 6px rgba(96,165,250,.10);
 }
 /* 今日日期：圆形徽章 */
 .kanban-day.month.today .month-date {
   background: var(--accent); color: var(--on-accent);
-  border-radius: 50%; width: 26px; height: 26px;
+  border-radius: 50%; width: 24px; height: 24px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 14px; padding: 0; box-shadow: 0 2px 8px rgba(96,165,250,.35);
+  font-size: 13px; padding: 0; box-shadow: 0 1px 4px rgba(96,165,250,.25);
 }
 /* 月视图日期头部更清晰 */
 .month-day-head {
   padding: 7px 10px 5px; gap: 8px;
 }
 .month-date {
-  font-size: 17px; font-weight: 800; line-height: 1;
+  font-size: 15px; font-weight: 700; line-height: 1;
 }
 .month-weekday {
   font-size: 10px; color: var(--text-2); font-weight: 500;
@@ -1376,11 +1376,11 @@ body::after {
   white-space: nowrap; line-height: 1.3;
 }
 .type-tag {
-  font-size: 10px; padding: 1px 7px; border-radius: 6px;
-  font-weight: 700; letter-spacing: .3px; flex-shrink: 0;
+  font-size: 10px; padding: 2px 8px; border-radius: 7px;
+  font-weight: 600; letter-spacing: .3px; flex-shrink: 0;
 }
-.tag-regular { background: rgba(96,165,250,.15); color: var(--accent); }
-.tag-other { background: rgba(167,139,250,.15); color: var(--other); }
+.tag-regular { background: rgba(96,165,250,.12); color: var(--accent); }
+.tag-other { background: rgba(167,139,250,.12); color: var(--other); }
 :root[data-theme="light"] .tag-regular { background: rgba(37,99,235,.1); }
 :root[data-theme="light"] .tag-other { background: rgba(124,58,237,.1); }
 
@@ -1806,13 +1806,13 @@ body::after {
 }
 .dh-left { display: flex; flex-direction: column; gap: 4px; }
 .day-week {
-  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
-  color: var(--accent); text-transform: uppercase;
+  font-size: 11px; font-weight: 600; letter-spacing: 1.2px;
+  color: var(--text-2); text-transform: uppercase;
   display: inline-flex; align-items: center; gap: 6px;
 }
 .day-date {
-  font-size: 26px; font-weight: 800; font-family: var(--mono);
-  line-height: 1; color: var(--text-0); letter-spacing: 1px;
+  font-size: 22px; font-weight: 700; font-family: var(--mono);
+  line-height: 1.1; color: var(--text-0); letter-spacing: 0;
 }
 .kanban-day:not(.month).today .day-date {
   color: var(--accent);
@@ -1845,20 +1845,20 @@ body::after {
 /* ---- 日任务区 ---- */
 .day-body { padding: 10px; gap: 8px; }
 
-/* ---- 工作卡片：阴影分层 + 色条发光 ---- */
+/* ---- 工作卡片：阴影分层 + 细色条 ---- */
 .work-card {
-  border-radius: 11px;
-  padding: 10px 12px 9px 14px;
+  border-radius: 12px;
+  padding: 10px 12px 10px 14px;
   background: var(--card-grad);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-card), inset 0 1px 0 var(--hl);
 }
 .work-card::before {
-  width: 3px; border-radius: 0 3px 3px 0;
+  width: 2px; border-radius: 0 2px 2px 0;
 }
 .work-card.type-other::before { box-shadow: none; }
 .work-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   border-color: var(--line-strong);
   box-shadow: var(--shadow-float);
 }
@@ -2067,8 +2067,8 @@ body::after {
    浅色模式精致化
    ============================================================ */
 :root[data-theme="light"] {
-  --shadow-card: 0 4px 16px rgba(15,23,42,.07), 0 1px 3px rgba(15,23,42,.04);
-  --shadow-float: 0 10px 28px rgba(15,23,42,.10), 0 0 18px rgba(37,99,235,.04);
+  --shadow-card: 0 1px 2px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.06), 0 0 0 1px rgba(37,99,235,.03);
+  --shadow-float: 0 2px 4px rgba(15,23,42,.06), 0 10px 24px rgba(15,23,42,.10), 0 0 0 1px rgba(37,99,235,.05);
   --topbar-bg: rgba(255,255,255,.72);
 }
 
@@ -2113,11 +2113,11 @@ body::after {
   box-shadow: 0 1px 3px rgba(37,99,235,.25);
 }
 
-/* 无任务卡片：+点击录入 调淡至 #D1D5DB */
+/* 无任务卡片：默认安静，悬停才显框 */
 :root[data-theme="light"] .day-empty {
-  border-color: #D1D5DB; color: #D1D5DB;
+  border-color: transparent; color: #cbd5e1;
 }
-:root[data-theme="light"] .day-empty::before { color: #D1D5DB; }
+:root[data-theme="light"] .day-empty::before { color: #cbd5e1; }
 
 /* 浅色进度条适配 */
 :root[data-theme="light"] .hours-bar { background: #E5E7EB; }
@@ -2456,3 +2456,15 @@ body, .topbar, .modal-box {
 .input-search::-webkit-search-cancel-button,
 .input-search::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
 @media (max-width: 760px) { .input.input-search { width: 150px; } }
+
+/* ============================================================
+   本轮深化：列/格玻璃质感（仅深色；浅色保持纯白实色）
+   ============================================================ */
+:root:not([data-theme="light"]) .kanban-day {
+  background: linear-gradient(180deg, rgba(24,35,60,.60), rgba(14,22,40,.66));
+  backdrop-filter: blur(12px) saturate(1.12);
+  -webkit-backdrop-filter: blur(12px) saturate(1.12);
+}
+:root:not([data-theme="light"]) .day-head {
+  border-bottom-color: rgba(148,163,184,.12);
+}

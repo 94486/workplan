@@ -196,7 +196,7 @@ const Kanban = (() => {
           </div>
         </div>
         <div class="day-body">
-          ${cards || `<div class="day-empty">＋ 点击录入</div>`}
+          ${cards || `<div class="day-empty">点击录入</div>`}
         </div>
         ${items.length
           ? `<div class="day-totals">
