@@ -196,7 +196,7 @@ const Kanban = (() => {
           </div>
         </div>
         <div class="day-body">
-          ${cards || `<div class="day-empty">点击详细录入</div>`}
+          ${cards || `<div class="day-empty">＋ 点击录入</div>`}
         </div>
         ${items.length
           ? `<div class="day-totals">
@@ -206,9 +206,6 @@ const Kanban = (() => {
                </div>
              </div>`
           : ""}
-        <div class="quick-add">
-          <input class="qa-input" type="text" data-date="${dStr}" maxlength="100" placeholder="＋ 快速添加 · 回车" aria-label="快速添加工作" />
-        </div>
       </div>`;
     }
     board.innerHTML = html;
@@ -361,26 +358,6 @@ const Kanban = (() => {
     } catch (e) { Toast.show(e.message, "err"); }
   }
 
-  /** 列内快速录入：输入名称 + 回车即建（默认常规 / 0 时长 / 该列日期） */
-  async function quickAdd(input) {
-    const name = (input.value || "").trim();
-    if (!name) return;
-    const date = input.dataset.date;
-    const monthly = Store.getMode() === "monthly";
-    try {
-      if (monthly) {
-        await API.createMonthlyWork({ name, work_type: "regular", duration_hours: 0, planned_date: date, notes: "" });
-      } else {
-        await API.createWork({ name, work_type: "regular", duration_hours: 0, planned_date: date, expected_income: 0, notes: "" });
-      }
-      input.value = "";
-      Toast.show(`已添加「${name}」`, "ok");
-      await Store.refresh();
-      const again = document.querySelector(`#kanban .qa-input[data-date="${date}"]`);
-      if (again) again.focus();
-    } catch (e) { Toast.show(e.message, "err"); }
-  }
-
   /** 月视图「+N 更多」→ 跳转周视图定位到该周 */
   function jumpToWeek(dateStr) {
     setView("week");
@@ -390,8 +367,6 @@ const Kanban = (() => {
 
   /** 点击看板：一键完成 → 更多跳转 → 卡片操作 → 空白快速录入 */
   function onBoardClick(e) {
-    // 0. 列内快速录入输入框：不触发"点击空白打开弹窗"
-    if (e.target.closest(".quick-add")) return;
     // 1. 一键完成按钮
     const quick = e.target.closest(".quick-done");
     if (quick) {
@@ -436,13 +411,6 @@ const Kanban = (() => {
       document.getElementById("boardNext").addEventListener("click", next);
       document.getElementById("boardToday").addEventListener("click", goToday);
       document.getElementById("kanban").addEventListener("click", onBoardClick);
-      // 列内快速录入：回车提交
-      document.getElementById("kanban").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          const inp = e.target.closest(".qa-input");
-          if (inp) { e.preventDefault(); quickAdd(inp); }
-        }
-      });
       document.querySelectorAll(".view-switch .vs-btn").forEach((btn) =>
         btn.addEventListener("click", () => setView(btn.dataset.mode))
       );
