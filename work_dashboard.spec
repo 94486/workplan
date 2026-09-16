@@ -38,6 +38,9 @@ a = Analysis(
         "uvicorn.lifespan",
         "uvicorn.lifespan.on",
         "uvicorn.config",
+        # 数据导入（FastAPI Form/File 依赖 python-multipart，运行时按需加载）
+        "python_multipart",
+        "multipart",
         # Windows 系统托盘 + 图标
         "pystray",
         "pystray._win32",

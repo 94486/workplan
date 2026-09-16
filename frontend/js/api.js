@@ -39,6 +39,33 @@ const API = (() => {
     updatePreset: (id, data) => request("PUT", `/api/presets/${id}`, data),
     deletePreset: (id) => request("DELETE", `/api/presets/${id}`),
 
+    /** 月薪模式：任务接口（无收入字段） */
+    listMonthlyWorks: (params = {}) => {
+      const q = new URLSearchParams(
+        Object.entries(params).filter(([, v]) => v !== "" && v != null)
+      ).toString();
+      return request("GET", `/api/monthly/works${q ? "?" + q : ""}`);
+    },
+    createMonthlyWork: (data) => request("POST", "/api/monthly/works", data),
+    updateMonthlyWork: (id, data) => request("PUT", `/api/monthly/works/${id}`, data),
+    deleteMonthlyWork: (id) => request("DELETE", `/api/monthly/works/${id}`),
+    completeMonthlyWork: (id, data) => request("POST", `/api/monthly/works/${id}/complete`, data),
+    reopenMonthlyWork: (id) => request("POST", `/api/monthly/works/${id}/reopen`),
+
+    /** 月薪模式：预设接口 */
+    listMonthlyPresets: (work_type = "regular") =>
+      request("GET", `/api/monthly/presets${work_type ? `?work_type=${work_type}` : ""}`),
+    createMonthlyPreset: (data) => request("POST", "/api/monthly/presets", data),
+    updateMonthlyPreset: (id, data) => request("PUT", `/api/monthly/presets/${id}`, data),
+    deleteMonthlyPreset: (id) => request("DELETE", `/api/monthly/presets/${id}`),
+
+    /** 月薪模式：收入配置 + 统计 */
+    getMonthlySettings: () => request("GET", "/api/monthly/settings"),
+    updateMonthlySettings: (data) => request("PUT", "/api/monthly/settings", data),
+    getMonthlySummary: () => request("GET", "/api/monthly/stats/summary"),
+    getMonthlyWeekly: () => request("GET", "/api/monthly/stats/weekly"),
+    getMonthlyMonthly: () => request("GET", "/api/monthly/stats/monthly"),
+
     /** 统计接口 */
     getSummary: () => request("GET", "/api/stats/summary"),
     getDaily: (days = 14) => request("GET", `/api/stats/daily?days=${days}`),
@@ -46,6 +73,14 @@ const API = (() => {
 
     /** 健康检查 */
     health: () => request("GET", "/api/health"),
+
+    /** 数据对接（外部程序推送 + 待审查合并） */
+    getPushConfig: () => request("GET", "/api/push/config"),
+    regeneratePushKey: () => request("PUT", "/api/push/config", { regenerate: true }),
+    listPushInbox: (status = "pending") =>
+      request("GET", `/api/push/inbox?status=${encodeURIComponent(status)}`),
+    approvePush: (id) => request("POST", `/api/push/inbox/${id}/approve`),
+    discardPush: (id) => request("POST", `/api/push/inbox/${id}/discard`),
 
     /** 数据导出：下载 JSON / CSV 备份文件（通过 blob 触发浏览器下载） */
     async exportData(format = "json") {

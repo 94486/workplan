@@ -1,11 +1,39 @@
+# ============================================================
+# 龙猫工作统计台 - Docker 构建上下文忽略清单
+# 这些文件/目录不会发送到 Docker daemon，显著减小构建上下文
+# ============================================================
+
+# 版本控制
 .git
 .gitignore
+.workbuddy
+
+# 本地数据与运行产物（不应进入镜像）
 data
-docs
+logs
 build
 dist
 *.pyc
 __pycache__
 .venv
 venv
+
+# 打包产物与中间文件
+*.exe
+*.spec
+build_exe.bat
+run_exe.py
+docker-workplan.tar
+_pack_*.png
+
+# 示例数据与测试脚本（镜像运行不需要）
+example
+tools
+
+# 文档（镜像内无需携带）
+docs
 *.md
+
+# 环境变量样例
+.env
+.env.*

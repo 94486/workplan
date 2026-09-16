@@ -72,6 +72,72 @@ CREATE TABLE IF NOT EXISTS presets (
 );
 
 CREATE INDEX IF NOT EXISTS idx_presets_work_type ON presets(work_type);
+
+-- ============================================================
+-- 月薪模式（独立数据，与日薪模式完全隔离，互不干扰）
+-- 任务无每日收入字段：收入按「上月常规收入 + 上月其它收入」整体核算
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS monthly_works (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT    NOT NULL,
+    work_type     TEXT    NOT NULL DEFAULT 'regular',
+    duration_hours REAL   NOT NULL DEFAULT 0,
+    planned_date  TEXT    NOT NULL,
+    notes         TEXT    NOT NULL DEFAULT '',
+    status        TEXT    NOT NULL DEFAULT 'pending',
+    actual_duration_hours REAL,
+    completed_date TEXT,
+    created_at    TEXT    NOT NULL,
+    updated_at    TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_mworks_planned_date ON monthly_works(planned_date);
+CREATE INDEX IF NOT EXISTS idx_mworks_status        ON monthly_works(status);
+CREATE INDEX IF NOT EXISTS idx_mworks_work_type     ON monthly_works(work_type);
+
+CREATE TABLE IF NOT EXISTS monthly_presets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT    NOT NULL,
+    work_type       TEXT    NOT NULL DEFAULT 'regular',
+    duration_hours  REAL    NOT NULL DEFAULT 0,
+    notes           TEXT    NOT NULL DEFAULT '',
+    created_at      TEXT    NOT NULL,
+    updated_at      TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_mpresets_work_type ON monthly_presets(work_type);
+
+CREATE TABLE IF NOT EXISTS monthly_settings (
+    id             INTEGER PRIMARY KEY CHECK (id = 1),
+    month_key      TEXT    NOT NULL DEFAULT '',
+    regular_income REAL    NOT NULL DEFAULT 0,
+    other_income   REAL    NOT NULL DEFAULT 0,
+    updated_at     TEXT    NOT NULL
+);
+
+-- ============================================================
+-- 数据对接（外部程序推送）：对接码 + 待审查箱
+-- 外部程序通过对接码推送数据 → 进入待审查箱（不直接入库）
+-- 用户审查后在界面「接收合并」→ 以合并模式写入正式表，或「丢弃」
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS push_config (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    api_key    TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS push_inbox (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    payload      TEXT    NOT NULL,                 -- 推送的完整 JSON 快照（含 source/pushed_at/data）
+    record_count INTEGER NOT NULL DEFAULT 0,       -- 可识别记录数（供界面展示）
+    status       TEXT    NOT NULL DEFAULT 'pending', -- pending / merged / discarded
+    received_at  TEXT    NOT NULL,
+    merged_at    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_inbox_status ON push_inbox(status);
 """
 
 
@@ -123,12 +189,30 @@ def init_db(with_demo: bool = False) -> None:
     conn = get_conn()
     try:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         count = conn.execute("SELECT COUNT(*) AS c FROM works").fetchone()["c"]
         if count == 0 and with_demo:
             _seed_demo(conn)
         conn.commit()
     finally:
         conn.close()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """轻量兼容迁移：为已存在的旧表补充/清理列（CREATE IF NOT EXISTS 不会加列）。
+
+    推送识别字段（source / pushed_at）不建立独立数据库列：它们随 payload
+    完整快照保存，仅用于待审查箱的识别展示。旧版本遗留的独立列在此清理；
+    用 PRAGMA 探测避免重复操作，DROP 失败（旧版 SQLite / 列被引用）则忽略，
+    空列保留不影响功能。
+    """
+    existing = {r["name"] for r in conn.execute("PRAGMA table_info(push_inbox)").fetchall()}
+    for col in ("source", "pushed_at", "device", "username"):
+        if col in existing:
+            try:
+                conn.execute(f"ALTER TABLE push_inbox DROP COLUMN {col}")
+            except sqlite3.OperationalError:
+                pass  # 旧版 SQLite 不支持 DROP COLUMN 时保留，不影响功能
 
 
 def _seed_demo(conn: sqlite3.Connection) -> None:

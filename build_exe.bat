@@ -1,12 +1,13 @@
 @echo off
 chcp 65001 >nul
-setlocal
+setlocal enabledelayedexpansion
 
 REM ============================================================
-REM  个人工作管理工作台 - Windows 打包脚本
-REM  产物: dist\WorkDashboard.exe
-REM  说明: 不自动安装依赖；打包前自动备份 dist 中的数据库，
-REM        打包完成后恢复，确保重新打包不丢失已录入数据。
+REM  Personal Work Dashboard - Windows build script
+REM  Output: dist\WorkDashboard.exe
+REM  Notes : Does NOT auto-install dependencies.
+REM          Backs up dist\data\works.db before build and
+REM          restores it afterwards, so your data is never lost.
 REM ============================================================
 
 set "PROJECT_DIR=%~dp0"
@@ -16,95 +17,92 @@ set "DIST_DB=%PROJECT_DIR%dist\data\works.db"
 set "DB_BACKUP=%PROJECT_DIR%_db_backup.tmp"
 
 echo ============================================================
-echo   个人工作管理工作台 - EXE 打包
+echo   Personal Work Dashboard - EXE Build
 echo ============================================================
 echo.
 
 REM ------------------------------------------------------------
-REM [1/4] 检测 PyInstaller
+REM [1/5] Check PyInstaller
 REM ------------------------------------------------------------
-echo [1/4] 检测打包环境...
+echo [1/5] Checking build environment...
 python -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
-    echo [错误] 未检测到 PyInstaller。
-    echo        请先执行: pip install pyinstaller
-    echo        或使用你平时打包其他程序的 Python 环境。
+    echo [ERROR] PyInstaller not found.
+    echo         Please install it first: pip install pyinstaller
     pause
     exit /b 1
 )
-echo       PyInstaller 已就绪。
+echo        PyInstaller is ready.
 
 REM ------------------------------------------------------------
-REM [2/4] 备份已有数据库
+REM [2/5] Backup existing database
 REM ------------------------------------------------------------
 echo.
-echo [2/4] 检查并备份已有数据...
+echo [2/5] Checking and backing up data...
 set "HAS_OLD_DB=0"
 if exist "%DIST_DB%" (
     copy /y "%DIST_DB%" "%DB_BACKUP%" >nul
     set "HAS_OLD_DB=1"
-    echo       已备份 dist\data\works.db
+    echo        Backed up dist\data\works.db
 ) else (
-    echo       无旧数据，打包后将自动创建新数据库
+    echo        No old data; a new database will be created on first run.
 )
 
 REM ------------------------------------------------------------
-REM [3/4] 清理旧产物并打包
+REM [3/5] Kill running instance and clean, then build
 REM ------------------------------------------------------------
 echo.
-echo [3/4] 清理旧产物并打包（约 1-3 分钟）...
+echo [3/5] Stopping old program, cleaning, building (1-3 min)...
+taskkill /f /im WorkDashboard.exe >nul 2>&1
+if errorlevel 1 ( echo        No running instance ) else ( echo        Old instance stopped )
+timeout /t 1 /nobreak >nul
 if exist "%PROJECT_DIR%build" rmdir /s /q "%PROJECT_DIR%build"
-if exist "%PROJECT_DIR%dist" rmdir /s /q "%PROJECT_DIR%dist"
-echo       清理完成，开始打包...
+if exist "%PROJECT_DIR%dist\WorkDashboard.exe" del /q "%PROJECT_DIR%dist\WorkDashboard.exe"
+echo        Cleaned. Building...
 echo.
 python -m PyInstaller --noconfirm "%SPEC_FILE%"
 if errorlevel 1 (
     echo.
-    echo [错误] 打包失败，请查看上方错误信息。
+    echo [ERROR] Build failed. Check messages above.
     if exist "%DB_BACKUP%" del /q "%DB_BACKUP%"
     pause
     exit /b 1
 )
 
 REM ------------------------------------------------------------
-REM [4/4] 恢复数据库并验证
+REM [4/5] Restore database
 REM ------------------------------------------------------------
 echo.
-echo [4/4] 恢复数据...
+echo [4/5] Restoring data...
 if not exist "%PROJECT_DIR%dist\data" mkdir "%PROJECT_DIR%dist\data"
 if "%HAS_OLD_DB%"=="1" (
     copy /y "%DB_BACKUP%" "%DIST_DB%" >nul
     del /q "%DB_BACKUP%"
-    echo       已恢复原有数据库
+    echo        Database restored.
 ) else (
-    echo       无旧数据，首次运行将自动创建
+    echo        No old data; new database will be created on first run.
 )
 
-echo.
+REM ------------------------------------------------------------
+REM [5/5] Verify output
+REM ------------------------------------------------------------
 if not exist "%DIST_EXE%" (
-    echo [错误] 未找到产物: %DIST_EXE%
+    echo [ERROR] Output not found: %DIST_EXE%
     pause
     exit /b 1
 )
-
 for %%f in ("%DIST_EXE%") do set "EXE_SIZE=%%~zf"
 set /a EXE_MB=%EXE_SIZE% / 1048576
 
-echo ============================================================
-echo   打包成功
-echo   路径: %DIST_EXE%
-echo   大小: 约 %EXE_MB% MB
 echo.
-if "%HAS_OLD_DB%"=="1" (
-echo   数据: 已沿用原有数据库（dist\data\works.db）
-) else (
-echo   数据: 首次运行将自动创建新数据库
-)
+echo ============================================================
+echo   BUILD OK
+echo   Path: %DIST_EXE%
+echo   Size: ~!EXE_MB! MB
+echo   Data: preserved (backup/restore)
 echo ============================================================
 echo.
-
-set /p "OPEN_DIR=打开产物目录? (Y/N): "
-if /i "%OPEN_DIR%"=="Y" explorer "%PROJECT_DIR%dist"
-
-endlocal
-exit /b 0
+echo Run WorkDashboard.exe to start.
+echo If the browser does not open, visit http://127.0.0.1:8000
+echo.
+pause

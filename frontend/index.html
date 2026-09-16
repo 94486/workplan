@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>个人工作管理工作台</title>
-  <link rel="stylesheet" href="/static/css/style.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>" />
+  <link rel="stylesheet" href="/static/css/style.css?v=20260917" />
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
   <script>
-    // 防闪烁：渲染前按 ?theme= 参数（优先级高）或 localStorage 记忆应用主题
+    // 防闪跳：渲染前按 ?theme= 参数（优先级高）或 localStorage 记忆应用主题
     (function () {
       try {
         var q = new URLSearchParams(location.search).get("theme");
@@ -18,7 +18,7 @@
   </script>
 </head>
 <body>
-  <!-- 背景科技感装饰层（星点 / 光束 / 透视网格，纯视觉） -->
+  <!-- 背景科技感装饰层（星星 / 光束 / 透视网格，纯视觉）-->
   <div class="bg-fx" aria-hidden="true">
     <div class="bg-stars"></div>
     <div class="bg-beam"></div>
@@ -29,54 +29,35 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-icon">
-        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
-          <defs>
-            <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#38bdf8"/>
-              <stop offset="1" stop-color="#a78bfa"/>
-            </linearGradient>
-          </defs>
-          <rect x="2" y="2" width="28" height="28" rx="8" fill="url(#brandGrad)" opacity=".14"/>
-          <rect x="2" y="2" width="28" height="28" rx="8" fill="none" stroke="url(#brandGrad)" stroke-width="1.6"/>
-          <path d="M16 5.5l8.5 5.2v10.6L16 26.5l-8.5-5.2V10.7z" fill="none" stroke="url(#brandGrad)" stroke-width="2" stroke-linejoin="round"/>
-          <circle cx="16" cy="16" r="3.6" fill="url(#brandGrad)"/>
-        </svg>
+        <img src="/static/logo.png" alt="龙猫工作统计台" class="brand-logo" width="40" height="40" style="border-radius:11px;object-fit:cover;display:block" />
       </span>
-      <span class="brand-name">WORK·OS</span>
-      <span class="brand-sub">个人工作管理工作台</span>
+      <div class="brand-text">
+        <span class="brand-name">龙猫工作统计台</span>
+        <span class="brand-sub" id="heroGreet" title="点击有惊喜">为人民服务</span>
+      </div>
     </div>
     <nav class="tabs">
-      <button class="tab active" data-tab="kanban">📅 日程看板</button>
-      <button class="tab" data-tab="stats">📊 工时收入</button>
-      <button class="tab" data-tab="list">🗂 全部工作</button>
+      <button class="tab active" data-tab="kanban"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>日程看板</button>
+      <button class="tab" data-tab="stats"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>工时收入</button>
+      <button class="tab" data-tab="list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>全部工作</button>
     </nav>
     <div class="topbar-actions">
-      <span class="today-chip" id="todayChip"></span>
-      <button class="icon-btn" id="btnRefresh" title="刷新数据">⟳</button>
-      <button class="icon-btn" id="btnTheme" title="切换深浅色主题">☀️</button>
-      <button class="btn btn-ghost btn-sm" id="btnImport" title="从 JSON / CSV 文件导入数据">⇧ 导入</button>
-      <button class="btn btn-ghost btn-sm" id="btnExport" title="导出全部数据为备份文件">⇩ 导出</button>
+      <span class="top-clock" id="topClock">--:--</span>
+      <button class="mode-toggle" id="modeSwitch" title="切换日薪 / 月薪模式（两套数据独立）">
+        <span class="mt-ico"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span><span class="mt-text">日薪模式</span>
+      </button>
+      <button class="icon-btn" id="btnRefresh" title="刷新数据"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg></button>
+      <button class="icon-btn" id="btnTheme" title="切换深浅色主题"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+      <button class="btn btn-ghost btn-sm" id="btnImport" title="从 JSON / CSV 文件导入数据"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>导入</button>
+      <button class="btn btn-ghost btn-sm" id="btnExport" title="导出全部数据为备份文件"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导出</button>
+      <button class="btn btn-ghost btn-sm" id="btnPush" title="数据对接：其他程序通过对接码推送数据，审查后合并">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>对接<span class="push-badge" id="pushBadge" hidden></span>
+      </button>
       <button class="btn btn-primary" id="btnNewWork">＋ 录入工作</button>
     </div>
   </header>
 
   <main class="container">
-    <!-- ============ 顶部欢迎横幅 ============ -->
-    <div class="hero" id="heroBanner">
-      <div class="hero-left">
-        <div class="hero-greet">
-          <b id="heroGreet">晚上好，继续加油</b>
-          <svg class="hero-badge" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 2l2.4 5.6L20 8.4l-4.2 3.9 1.1 6.2L12 15.8 7.1 18.5l1.1-6.2L4 8.4l5.6-.8z" fill="currentColor"/>
-          </svg>
-        </div>
-        <p class="hero-sub" id="heroSub">今天是 2026年8月21日 星期五 · 距周末还有 1 天</p>
-      </div>
-      <div class="hero-clock" id="heroClock">
-        <span class="clock-time" id="clockTime">--:--:--</span>
-        <span class="clock-date" id="clockDate">-- --</span>
-      </div>
-    </div>
 
     <!-- ============ 日程看板 ============ -->
     <section class="view active" id="view-kanban">
@@ -87,9 +68,9 @@
             <button class="vs-btn active" data-mode="week">周视图</button>
             <button class="vs-btn" data-mode="month">月视图</button>
           </div>
-          <button class="icon-btn" id="boardPrev">‹</button>
+          <button class="icon-btn" id="boardPrev" title="上一页"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
           <span class="board-range" id="boardRange"></span>
-          <button class="icon-btn" id="boardNext">›</button>
+          <button class="icon-btn" id="boardNext" title="下一页"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
           <button class="btn btn-ghost btn-sm" id="boardToday">回到今天</button>
         </div>
         <div class="legend">
@@ -109,7 +90,7 @@
       <div class="stats-sub" id="statsSub"></div>
       <div class="stats-grid">
         <div class="panel panel-wide">
-          <div class="panel-title">工时 / 收入趋势（近 8 周）<span class="panel-note">柱 · 工时（右轴）｜线 · 收入（左轴）</span></div>
+          <div class="panel-title" id="weeklyChartTitle">工时 / 收入趋势（近 8 周）<span class="panel-note">柱 · 工时（右轴）｜线 · 收入（左轴）</span></div>
           <div class="chart-wrap"><svg id="chartWeekly" class="chart chart-tall"></svg></div>
         </div>
       </div>
@@ -121,6 +102,10 @@
     <section class="view" id="view-list">
       <div class="list-toolbar">
         <div class="filter-group">
+          <label class="search-box">
+            <svg class="search-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="filterSearch" class="input input-search" placeholder="搜索名称 / 备注" autocomplete="off" />
+          </label>
           <select id="filterType" class="select">
             <option value="">全部类型</option>
             <option value="regular">常规工作</option>
@@ -158,12 +143,12 @@
     </section>
   </main>
 
-  <!-- 工作编辑弹窗（新建 / 编辑 / 标记完成共用） -->
+  <!-- 工作编辑弹窗（新建 / 编辑 / 标记完成共用）-->
   <div class="modal-mask" id="workModalMask">
     <div class="modal" id="workModal">
       <div class="modal-head">
         <span class="modal-title" id="modalTitle">录入工作</span>
-        <button class="icon-btn" data-close>&times;</button>
+        <button class="icon-btn" data-close title="关闭"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="modal-body" id="modalBody"></div>
     </div>
@@ -172,12 +157,12 @@
   <!-- 轻提示 -->
   <div class="toast" id="toast"></div>
 
-  <script src="/static/js/api.js"></script>
-  <script src="/static/js/store.js"></script>
-  <script src="/static/js/charts.js"></script>
-  <script src="/static/js/kanban.js"></script>
-  <script src="/static/js/stats.js"></script>
-  <script src="/static/js/modal.js"></script>
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/api.js?v=20260917"></script>
+  <script src="/static/js/store.js?v=20260917"></script>
+  <script src="/static/js/charts.js?v=20260917"></script>
+  <script src="/static/js/kanban.js?v=20260917"></script>
+  <script src="/static/js/stats.js?v=20260917"></script>
+  <script src="/static/js/modal.js?v=20260917"></script>
+  <script src="/static/js/app.js?v=20260917"></script>
 </body>
 </html>

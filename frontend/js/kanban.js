@@ -47,6 +47,7 @@ const Kanban = (() => {
 
   /* ---------- 通用卡片（周视图） ---------- */
   function cardHTML(w, todayStr) {
+    const monthly = Store.getMode() === "monthly";
     const isRegular = w.work_type === "regular";
     const isDone = w.status === "done";
     const overdue = !isDone && isOverdue(w, todayStr);
@@ -62,24 +63,25 @@ const Kanban = (() => {
     return `
     <div class="work-card type-${w.work_type} ${isDone ? "done" : ""} ${overdue ? "overdue" : ""} ${delayed ? "delayed" : ""}"
          data-id="${w.id}" title="${esc(w.notes || w.name)}">
-      ${!isDone ? '<button class="quick-done" data-quick="1" title="一键完成（按计划值 / 今天）">✓</button>' : ""}
+      ${!isDone ? '<button class="quick-done" data-quick="1" title="一键完成（按计划值 / 今天）"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto"><polyline points="20 6 9 17 4 12"/></svg></button>' : ""}
       <div class="card-top">
         <span class="type-tag ${isRegular ? "tag-regular" : "tag-other"}">${typeTag}</span>
         <span class="card-name">${esc(w.name)}</span>
-        ${isDone ? '<span class="done-badge">✓ 已完成</span>' : ""}
+        ${isDone ? '<span class="done-badge"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px"><polyline points="20 6 9 17 4 12"/></svg>已完成</span>' : ""}
         ${delayed ? '<span class="delayed-badge">延迟</span>' : ""}
         ${overdue ? '<span class="overdue-badge">逾期</span>' : ""}
       </div>
       <div class="card-meta">
-        <span>⏱ <b>${hours}h</b></span>
-        <span class="income-pos">¥ <b>${income.toLocaleString()}</b></span>
-        ${w.notes ? '<span class="note-flag" title="' + esc(w.notes) + '">💬</span>' : ""}
+        <span><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><b>${hours}h</b></span>
+        ${monthly ? "" : '<span class="income-pos">¥ <b>' + income.toLocaleString() + "</b></span>"}
+        ${w.notes ? '<span class="note-flag" title="' + esc(w.notes) + '"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>' : ""}
       </div>
     </div>`;
   }
 
   /* ---------- 紧凑卡片（月视图） ---------- */
   function monthCardHTML(w, todayStr) {
+    const monthly = Store.getMode() === "monthly";
     const isRegular = w.work_type === "regular";
     const isDone = w.status === "done";
     const overdue = !isDone && isOverdue(w, todayStr);
@@ -94,11 +96,11 @@ const Kanban = (() => {
     return `
     <div class="work-card month-card type-${w.work_type} ${isDone ? "done" : ""} ${overdue ? "overdue" : ""} ${delayed ? "delayed" : ""}"
          data-id="${w.id}" title="${esc(w.notes || w.name)}">
-      ${!isDone ? '<button class="quick-done" data-quick="1" title="一键完成">✓</button>' : ""}
+      ${!isDone ? '<button class="quick-done" data-quick="1" title="一键完成"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto"><polyline points="20 6 9 17 4 12"/></svg></button>' : ""}
       <span class="mc-name">${esc(w.name)}</span>
       ${overdue ? '<span class="overdue-badge">逾期</span>' : ""}
       ${delayed ? '<span class="delayed-badge">迟</span>' : ""}
-      <span class="mc-meta">⏱${hours}h · ¥${income.toLocaleString()}</span>
+      <span class="mc-meta">${monthly ? `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:2px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${hours}h` : `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:2px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${hours}h · ¥${income.toLocaleString()}`}</span>
     </div>`;
   }
 
@@ -111,12 +113,12 @@ const Kanban = (() => {
       lo = `${y}-${String(m + 1).padStart(2, "0")}-01`;
       hi = `${y}-${String(m + 1).padStart(2, "0")}-${new Date(y, m + 1, 0).getDate()}`;
       label = "本月";
-      scopeLabel = "📅 本月概览";
+      scopeLabel = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>本月概览';
     } else {
       lo = fmt(baseDate);
       hi = fmt(new Date(baseDate.getTime() + 6 * DAY_MS));
       label = "本周";
-      scopeLabel = "📆 本周概览";
+      scopeLabel = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16h6M9 12h2"/></svg>本周概览';
     }
     const inScope = (dateStr) => dateStr >= lo && dateStr <= hi;
 
@@ -125,6 +127,8 @@ const Kanban = (() => {
     );
     const scopeHours = doneScope.reduce((s, w) => s + (w.actual_duration_hours || 0), 0);
     const scopeIncome = doneScope.reduce((s, w) => s + (w.actual_income || 0), 0);
+    const monthlyRef = (Store.getSummary() && Store.getSummary().settings)
+      ? Store.getSummary().settings.total_income || 0 : 0;
     const pendingAll = Store.getWorks().filter((w) => w.status === "pending");
     const overdueAll = pendingAll.filter((w) => isOverdue(w, todayStr));
     const todayPending = pendingAll.filter((w) => w.planned_date === todayStr).length;
@@ -132,18 +136,20 @@ const Kanban = (() => {
       (w) => w.status === "done" && w.completed_date === todayStr
     ).length;
 
-    const item = (l, v, cls = "", icon = "") =>
-      `<div class="ws-item ${cls}"><span class="ws-label">${icon}${l}</span><span class="ws-value">${v}</span></div>`;
+    const item = (l, v, cls = "") =>
+      `<div class="ws-item ${cls}"><span class="ws-label"><i class="ws-ico"></i>${l}</span><span class="ws-value">${v}</span></div>`;
 
     document.getElementById("weekSummary").innerHTML = `
       <span class="ws-scope ws-scope-click" title="点击切换周/月视图">${scopeLabel}<span class="ws-scope-hint">点击切换 ›</span></span>
-      ${item("今日待办", todayPending, todayPending ? "ws-warn" : "ws-muted", "⏰ ")}
-      ${item("今日完成", todayDone, todayDone ? "ws-ok" : "ws-muted", "✅ ")}
-      ${item(`${label}完成`, doneScope.length + " 项", "ws-done", "📋 ")}
-      ${item(`${label}工时`, scopeHours.toFixed(1) + " h", "ws-hours", "⏱ ")}
-      ${item(`${label}收入`, "¥" + Math.round(scopeIncome).toLocaleString(), "ws-income", "💰 ")}
-      ${item("待办合计", pendingAll.length + " 项", "ws-pending", "📝 ")}
-      ${item("已逾期", overdueAll.length + " 项", overdueAll.length ? "ws-danger" : "ws-muted", "⚠️ ")}
+      ${item("今日待办", todayPending, todayPending ? "ws-warn" : "ws-muted")}
+      ${item("今日完成", todayDone, todayDone ? "ws-ok" : "ws-muted")}
+      ${item(`${label}完成`, doneScope.length + " 项", "ws-done")}
+      ${item(`${label}工时`, scopeHours.toFixed(1) + " h", "ws-hours")}
+      ${Store.getMode() === "monthly"
+        ? item("月收入参考", "¥" + Math.round(monthlyRef).toLocaleString(), "ws-income")
+        : item(`${label}收入`, "¥" + Math.round(scopeIncome).toLocaleString(), "ws-income")}
+      ${item("待办合计", pendingAll.length + " 项", "ws-pending")}
+      ${item("已逾期", overdueAll.length + " 项", overdueAll.length ? "ws-danger" : "ws-muted")}
     `;
   }
 
@@ -151,6 +157,7 @@ const Kanban = (() => {
   function renderWeek() {
     const board = document.getElementById("kanban");
     board.classList.remove("month-grid");
+    const monthly = Store.getMode() === "monthly";
     const todayStr = fmt(new Date());
     let html = "";
 
@@ -176,24 +183,31 @@ const Kanban = (() => {
       html += `
       <div class="kanban-day ${isToday ? "today" : ""} ${isPast ? "past-day" : ""} ${isWeekend ? "weekend-col" : ""}" data-date="${dStr}">
         <div class="day-head">
-          <div>
-            <div class="day-week">周${WEEK[d.getDay()]}${isToday ? ' · <span class="today-tag">今天</span>' : ""}</div>
-            <div class="day-date ${isToday ? "today-date" : ""}">${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}</div>
+          <div class="dh-left">
+            <span class="day-week">周${WEEK[d.getDay()]}${isToday ? ' <span class="today-pill">今天</span>' : ""}</span>
+            <span class="day-date ${isToday ? "today-date" : ""}">${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}</span>
           </div>
-          <div class="day-counts">
-            ${pendingList.length ? `<span class="chip chip-pending">待 ${pendingList.length}</span>` : ""}
-            ${doneList.length ? `<span class="chip chip-done">完 ${doneList.length}</span>` : ""}
-            ${!items.length ? '<span class="day-meta">休息日</span>' : ""}
+          <div class="dh-right">
+            <div class="day-counts">
+              ${pendingList.length ? `<span class="chip chip-pending"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${pendingList.length}</span>` : ""}
+              ${doneList.length ? `<span class="chip chip-done"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>${doneList.length}</span>` : ""}
+              ${!items.length && isWeekend ? '<span class="day-meta">休息日</span>' : ""}
+            </div>
           </div>
         </div>
         <div class="day-body">
-          ${cards || `<div class="day-empty">＋ 点击录入</div>`}
+          ${cards || `<div class="day-empty">点击详细录入</div>`}
         </div>
-        <div class="day-totals">
-          ${items.length
-            ? `<div class="hours-bar"><div class="hours-bar-fill" style="width:${progress}%"></div></div>
-               <div class="hours-text">计划 ${planHours}h · 实际 ${actualHours}h · 收入 ¥${income.toLocaleString()}</div>`
-            : "—"}
+        ${items.length
+          ? `<div class="day-totals">
+               <div class="hours-track">
+                 <div class="hours-bar"><div class="hours-bar-fill ${progress >= 100 ? "full" : ""}" style="width:${progress}%"></div></div>
+                 <span class="hours-pct">${Math.round(progress)}%</span>
+               </div>
+             </div>`
+          : ""}
+        <div class="quick-add">
+          <input class="qa-input" type="text" data-date="${dStr}" maxlength="100" placeholder="＋ 快速添加 · 回车" aria-label="快速添加工作" />
         </div>
       </div>`;
     }
@@ -330,13 +344,40 @@ const Kanban = (() => {
   async function quickComplete(work) {
     try {
       const today = fmt(new Date());
-      await API.completeWork(work.id, {
-        actual_duration_hours: work.duration_hours,
-        completed_date: today,
-        actual_income: work.expected_income,
-      });
-      Toast.show(`「${work.name}」已完成，报表已同步 ✔`, "ok");
+      if (Store.getMode() === "monthly") {
+        await API.completeMonthlyWork(work.id, {
+          actual_duration_hours: work.duration_hours,
+          completed_date: today,
+        });
+      } else {
+        await API.completeWork(work.id, {
+          actual_duration_hours: work.duration_hours,
+          completed_date: today,
+          actual_income: work.expected_income,
+        });
+      }
+      Toast.show(`「${work.name}」已完成，报表已同步`, "ok");
       await Store.refresh();
+    } catch (e) { Toast.show(e.message, "err"); }
+  }
+
+  /** 列内快速录入：输入名称 + 回车即建（默认常规 / 0 时长 / 该列日期） */
+  async function quickAdd(input) {
+    const name = (input.value || "").trim();
+    if (!name) return;
+    const date = input.dataset.date;
+    const monthly = Store.getMode() === "monthly";
+    try {
+      if (monthly) {
+        await API.createMonthlyWork({ name, work_type: "regular", duration_hours: 0, planned_date: date, notes: "" });
+      } else {
+        await API.createWork({ name, work_type: "regular", duration_hours: 0, planned_date: date, expected_income: 0, notes: "" });
+      }
+      input.value = "";
+      Toast.show(`已添加「${name}」`, "ok");
+      await Store.refresh();
+      const again = document.querySelector(`#kanban .qa-input[data-date="${date}"]`);
+      if (again) again.focus();
     } catch (e) { Toast.show(e.message, "err"); }
   }
 
@@ -349,6 +390,8 @@ const Kanban = (() => {
 
   /** 点击看板：一键完成 → 更多跳转 → 卡片操作 → 空白快速录入 */
   function onBoardClick(e) {
+    // 0. 列内快速录入输入框：不触发"点击空白打开弹窗"
+    if (e.target.closest(".quick-add")) return;
     // 1. 一键完成按钮
     const quick = e.target.closest(".quick-done");
     if (quick) {
@@ -393,6 +436,13 @@ const Kanban = (() => {
       document.getElementById("boardNext").addEventListener("click", next);
       document.getElementById("boardToday").addEventListener("click", goToday);
       document.getElementById("kanban").addEventListener("click", onBoardClick);
+      // 列内快速录入：回车提交
+      document.getElementById("kanban").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const inp = e.target.closest(".qa-input");
+          if (inp) { e.preventDefault(); quickAdd(inp); }
+        }
+      });
       document.querySelectorAll(".view-switch .vs-btn").forEach((btn) =>
         btn.addEventListener("click", () => setView(btn.dataset.mode))
       );

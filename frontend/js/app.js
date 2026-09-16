@@ -20,12 +20,23 @@ const App = (() => {
     return document.documentElement.dataset.theme === "light" ? "light" : "dark";
   }
 
+  const ICON_MOON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  const ICON_SUN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  const ICON_WALLET = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>';
+  const ICON_BRIEFCASE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
+
+  // 列表行内操作图标（L3：文字按钮 → 图标按钮，配 title 提示）
+  const ICON_CHECK = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+  const ICON_EDIT = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  const ICON_REOPEN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+  const ICON_TRASH = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
   function syncThemeBtn() {
-    // 图标表示「点击后切换到的主题」：深色时显示 ☀️，浅色时显示 🌙
+    // 图标表示「点击后切换到的主题」：深色时显示 ☀️（用 SVG），浅色时显示 🌙（用 SVG）
     const btn = document.getElementById("btnTheme");
     if (!btn) return;
     const next = currentTheme() === "dark" ? "light" : "dark";
-    btn.textContent = next === "light" ? "☀️" : "🌙";
+    btn.innerHTML = next === "light" ? ICON_SUN : ICON_MOON;
     btn.title = next === "light" ? "切换到浅色主题" : "切换到深色主题";
   }
 
@@ -39,8 +50,35 @@ const App = (() => {
       const next = currentTheme() === "dark" ? "light" : "dark";
       try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* 忽略 */ }
       applyTheme(next);
-      Toast.show(next === "light" ? "已切换为浅色主题 ☀️" : "已切换为深色主题 🌙");
+      Toast.show(next === "light" ? "已切换为浅色主题" : "已切换为深色主题");
     });
+  }
+
+  /* ---------- 日薪 / 月薪模式切换 ---------- */
+  function bindModeSwitch() {
+    const sw = document.getElementById("modeSwitch");
+    if (!sw) return;
+    const LABELS = {
+      daily: ["日薪模式", ICON_WALLET],
+      monthly: ["月薪模式", ICON_BRIEFCASE],
+    };
+    const sync = () => {
+      const m = Store.getMode();
+      sw.classList.toggle("active", m === "monthly");
+      const [txt, ico] = LABELS[m];
+      sw.querySelector(".mt-text").textContent = txt;
+      sw.querySelector(".mt-ico").innerHTML = ico;
+      sw.title = m === "monthly"
+        ? "当前为月薪模式，点击切换为日薪模式"
+        : "当前为日薪模式，点击切换为月薪模式";
+    };
+    sw.addEventListener("click", () => {
+      const m = Store.getMode() === "daily" ? "monthly" : "daily";
+      Store.setMode(m);   // 触发所有视图订阅重渲染（看板/统计/列表）
+      sync();
+      Toast.show(m === "monthly" ? "已切换为月薪模式" : "已切换为日薪模式");
+    });
+    sync();
   }
 
   /* ---------- Tab 切换 ---------- */
@@ -73,12 +111,17 @@ const App = (() => {
     const status = document.getElementById("filterStatus").value;
     const from = document.getElementById("filterFrom").value;
     const to = document.getElementById("filterTo").value;
+    const searchEl = document.getElementById("filterSearch");
+    const q = searchEl ? searchEl.value.trim().toLowerCase() : "";
 
     let list = Store.getWorks();
     if (type) list = list.filter((w) => w.work_type === type);
     if (status) list = list.filter((w) => w.status === status);
     if (from) list = list.filter((w) => w.planned_date >= from);
     if (to) list = list.filter((w) => w.planned_date <= to);
+    if (q) list = list.filter((w) =>
+      String(w.name || "").toLowerCase().includes(q) ||
+      String(w.notes || "").toLowerCase().includes(q));
 
     // 排序（升降序），空值恒排最后
     const dir = sortDir === "asc" ? 1 : -1;
@@ -97,6 +140,7 @@ const App = (() => {
   /* ---------- 全部工作列表 ---------- */
   function renderList() {
     const today = new Date().toISOString().slice(0, 10);
+    const monthly = Store.getMode() === "monthly";
     const list = filteredList();
 
     document.getElementById("listCount").textContent = `共 ${list.length} 项`;
@@ -132,17 +176,17 @@ const App = (() => {
         <td><span class="badge badge-status ${w.status}">${isDone ? "已完成" : "待完成"}</span></td>
         <td class="num">${w.planned_date}</td>
         <td class="num">${hours}h</td>
-        <td class="num">¥ ${w.expected_income.toLocaleString()}</td>
+        <td class="num">${monthly ? "—" : "¥ " + w.expected_income.toLocaleString()}</td>
         <td class="num">${w.completed_date || "—"}</td>
-        <td class="num">${isDone ? "¥ " + (w.actual_income ?? 0).toLocaleString() : "—"}</td>
+        <td class="num">${monthly ? "—" : (isDone ? "¥ " + (w.actual_income ?? 0).toLocaleString() : "—")}</td>
         <td>
           <div class="row-actions">
             ${isDone
-              ? `<button class="mini" data-act="edit">编辑</button>
-                 <button class="mini" data-act="reopen">重新打开</button>`
-              : `<button class="mini done" data-act="complete">完成</button>
-                 <button class="mini" data-act="edit">编辑</button>`}
-            <button class="mini del" data-act="del">删除</button>
+              ? `<button class="mini" data-act="edit" title="编辑" aria-label="编辑">${ICON_EDIT}</button>
+                 <button class="mini" data-act="reopen" title="重新打开" aria-label="重新打开">${ICON_REOPEN}</button>`
+              : `<button class="mini done" data-act="complete" title="标记完成" aria-label="标记完成">${ICON_CHECK}</button>
+                 <button class="mini" data-act="edit" title="编辑" aria-label="编辑">${ICON_EDIT}</button>`}
+            <button class="mini del" data-act="del" title="删除" aria-label="删除">${ICON_TRASH}</button>
           </div>
         </td>
       </tr>`;
@@ -159,9 +203,9 @@ const App = (() => {
       <tr>
         <td colspan="4">合计（筛选结果 ${list.length} 项）</td>
         <td class="num">${planHours}h<span class="foot-sub"> / 实际 ${actualHours}h</span></td>
-        <td class="num">¥ ${expectIncome.toLocaleString()}</td>
+        <td class="num">${monthly ? "—" : "¥ " + expectIncome.toLocaleString()}</td>
         <td class="num"></td>
-        <td class="num">¥ ${actualIncome.toLocaleString()}</td>
+        <td class="num">${monthly ? "—" : "¥ " + actualIncome.toLocaleString()}</td>
         <td></td>
       </tr>`;
 
@@ -207,7 +251,9 @@ const App = (() => {
 
   async function reopen(work) {
     try {
-      await API.reopenWork(work.id);
+      // 严格按当前模式操作对应数据表，避免误动另一套数据
+      if (Store.getMode() === "monthly") await API.reopenMonthlyWork(work.id);
+      else await API.reopenWork(work.id);
       Toast.show("已恢复为待完成", "ok");
       await Store.refresh();
     } catch (e) { Toast.show(e.message, "err"); }
@@ -225,63 +271,77 @@ const App = (() => {
   const MONTH_EN = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
   const WEEKDAY_EN = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-  function renderHeroBanner() {
+  function renderTopbar() {
     const now = new Date();
     const greetEl = document.getElementById("heroGreet");
-    const NORMAL_TEXT = "为人民服务";
-    const EGG_TEXT = "我是一台无情的赚钱机器 💰";
+    // 彩蛋：点击随机触发趣味文案（含 2 个经典彩蛋 + 更多惊喜），并带微光特效
+    const HERO_STATES = [
+      { text: "为人民服务", egg: false },
+      { text: "我是一台无情的赚钱机器", egg: true },
+      { text: "革命尚未成功，同志仍需努力", egg: true },
+      { text: "打工人，打工魂，打工都是人上人", egg: true },
+      { text: "摸鱼一时爽，一直摸鱼一直爽", egg: true },
+      { text: "优秀员工正在营业中…", egg: true },
+      { text: "今天也要元气满满地搬砖", egg: true },
+      { text: "世界那么大，先把手头的工作做完", egg: true },
+    ];
 
-    // 彩蛋：点击切换文案
-    if (!greetEl.dataset.bound) {
+    if (greetEl && !greetEl.dataset.bound) {
       greetEl.dataset.bound = "1";
       greetEl.style.cursor = "pointer";
       greetEl.title = "点击有惊喜";
       greetEl.addEventListener("click", () => {
-        const isEgg = greetEl.dataset.egg === "1";
-        greetEl.dataset.egg = isEgg ? "0" : "1";
-        greetEl.classList.toggle("hero-egg", !isEgg);
-        greetEl.textContent = isEgg ? NORMAL_TEXT : EGG_TEXT;
-        // 切换弹出动画
+        const cur = parseInt(greetEl.dataset.egg || "0", 10) || 0;
+        let st;
+        do {
+          st = Math.floor(Math.random() * HERO_STATES.length);
+        } while (st === cur && HERO_STATES.length > 1);
+        greetEl.dataset.egg = String(st);
+        greetEl.classList.toggle("hero-egg", HERO_STATES[st].egg);
+        greetEl.textContent = HERO_STATES[st].text;
+        // 切换弹出动画 + 品牌区微光脉冲
         greetEl.classList.remove("hero-pop");
         void greetEl.offsetWidth;
         greetEl.classList.add("hero-pop");
+        const brand = document.querySelector(".brand");
+        if (brand) {
+          brand.classList.remove("hero-egging");
+          void brand.offsetWidth;
+          brand.classList.add("hero-egging");
+          setTimeout(() => brand.classList.remove("hero-egging"), 900);
+        }
         setTimeout(() => greetEl.classList.remove("hero-pop"), 550);
       });
     }
-    greetEl.textContent = greetEl.dataset.egg === "1" ? EGG_TEXT : NORMAL_TEXT;
-    if (greetEl.dataset.egg === "1") greetEl.classList.add("hero-egg");
+    if (greetEl) {
+      const curState = HERO_STATES[parseInt(greetEl.dataset.egg || "0", 10) || 0];
+      greetEl.textContent = curState.text;
+      greetEl.classList.toggle("hero-egg", curState.egg);
+    }
 
-    const wd = now.getDay();
-    const left = wd === 0 ? 0 : 6 - wd; // 距周末剩余天数（周日=0）
-    const dateStr =
-      `今天是 ${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 星期${WEEK_CN[wd]}` +
-      (left > 0 ? ` · 距周末还有 ${left} 天` : " · 周末快乐");
-    document.getElementById("heroSub").textContent = dateStr;
-
-    document.getElementById("clockDate").textContent =
-      `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${WEEKDAY_EN[wd]}`;
-
+    // 顶栏小型时间（分钟级更新）
     const tick = () => {
       const t = new Date();
-      document.getElementById("clockTime").textContent =
-        `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}:${String(t.getSeconds()).padStart(2, "0")}`;
+      const el = document.getElementById("topClock");
+      if (el) {
+        el.innerHTML =
+          `<span class="tc-time">${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}</span>` +
+          ` <span class="tc-week">周${WEEK_CN[t.getDay()]}</span>` +
+          ` · <span class="tc-date">${t.getMonth() + 1}月${t.getDate()}日</span>`;
+      }
     };
     tick();
-    setInterval(tick, 1000);
+    setInterval(tick, 30000);
   }
 
   /* ---------- 初始化 ---------- */
   async function init() {
-    // 顶栏日期
-    const d = new Date();
-    document.getElementById("todayChip").textContent =
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} 周${WEEK_CN[d.getDay()]}`;
-
-    renderHeroBanner();
+    renderTopbar();
 
     bindTabs();
     bindSort();
     bindTheme();
+    bindModeSwitch();
     syncThemeBtn();
     // 初始视图：读取 URL hash（如 #stats），默认看板
     const initTab = location.hash.replace("#", "");
@@ -307,12 +367,37 @@ const App = (() => {
     document.getElementById("btnNewWork").addEventListener("click", () => Modal.openCreate());
     document.getElementById("btnImport").addEventListener("click", () => Modal.openImport());
     document.getElementById("btnExport").addEventListener("click", () => Modal.openExport());
+    document.getElementById("btnPush").addEventListener("click", () => Modal.openPush());
+
+    /* ---------- 数据对接待审查提醒（角标 + 轮询） ----------
+     * 外部程序推送的数据不依赖工作台在线即可缓存到待审查箱；
+     * 本页面加载时与每 30 秒轮询一次待审查批次数，有新增时角标提示并可进入审核。 */
+    async function refreshPushBadge() {
+      try {
+        const items = await API.listPushInbox("pending");
+        const n = items.length;
+        const badge = document.getElementById("pushBadge");
+        if (n > 0) {
+          badge.textContent = n > 99 ? "99+" : String(n);
+          badge.hidden = false;
+        } else {
+          badge.hidden = true;
+        }
+        if (n > 0 && n !== window._lastPushCount) {
+          Toast.show(`收到 ${n} 批待审查数据，点「对接」审核`, "");
+        }
+        window._lastPushCount = n;
+      } catch (e) { /* 服务暂不可达等忽略，轮询自会恢复 */ }
+    }
+    document.addEventListener("push-inbox-changed", refreshPushBadge);
+    refreshPushBadge();
+    setInterval(refreshPushBadge, 30000);
     const btnRefresh = document.getElementById("btnRefresh");
     btnRefresh.addEventListener("click", async () => {
       btnRefresh.classList.add("spin");
       try {
         await Store.refresh();
-        Toast.show("数据已刷新 ✔", "ok");
+        Toast.show("数据已刷新", "ok");
       } catch (e) {
         Toast.show("刷新失败：" + e.message, "err");
       } finally {
@@ -324,10 +409,14 @@ const App = (() => {
     ["filterType", "filterStatus", "filterFrom", "filterTo"].forEach((id) => {
       document.getElementById(id).addEventListener("change", renderList);
     });
+    // 名称/备注搜索：即时过滤
+    const searchEl = document.getElementById("filterSearch");
+    if (searchEl) searchEl.addEventListener("input", renderList);
     document.getElementById("btnClearFilter").addEventListener("click", () => {
       ["filterType", "filterStatus", "filterFrom", "filterTo"].forEach((id) => {
         document.getElementById(id).value = "";
       });
+      if (searchEl) searchEl.value = "";
       renderList();
     });
     // 数据变更后列表自动刷新（仅在列表视图可见时）

@@ -44,10 +44,16 @@ def _get_or_404(work_id: int) -> dict:
 def list_works(
     status: str | None = Query(None, pattern="^(pending|done)$", description="按状态过滤"),
     work_type: str | None = Query(None, pattern="^(regular|other)$", description="按类型过滤"),
-    date_from: str | None = Query(None, description="计划日期 >= YYYY-MM-DD"),
-    date_to: str | None = Query(None, description="计划日期 <= YYYY-MM-DD"),
+    date_from: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="计划日期 >= YYYY-MM-DD"),
+    date_to: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="计划日期 <= YYYY-MM-DD"),
 ):
     """查询工作列表，支持状态/类型/日期范围过滤。"""
+    for _name, _v in (("date_from", date_from), ("date_to", date_to)):
+        if _v:
+            try:
+                date.fromisoformat(_v)
+            except ValueError:
+                raise HTTPException(status_code=422, detail=f"{_name} 必须是合法日期 YYYY-MM-DD")
     sql = f"SELECT {WORK_COLS} FROM works WHERE 1=1"
     params: list = []
     if status:
@@ -89,7 +95,7 @@ def create_work(payload: WorkCreate):
 
 @router.put("/{work_id}")
 def update_work(work_id: int, payload: WorkUpdate):
-    """编辑工作（待完成状态可改全部基础字段）。"""
+    """编辑工作（支持补录：已完成/待完成均可修改计划类基础字段，实际值不受影响）。"""
     row = _get_or_404(work_id)
     updates, params = [], []
     data = payload.model_dump(exclude_unset=True)
@@ -135,6 +141,10 @@ def complete_work(work_id: int, payload: WorkComplete):
     if actual_dur is None:
         actual_dur = _fallback("actual_duration_hours", row["duration_hours"])
     completed = payload.completed_date
+    if completed:
+        # 完成日期不能晚于今天（防未来完成导致统计口径漂移）
+        if date.fromisoformat(completed) > date.today():
+            raise HTTPException(status_code=422, detail="完成日期不能晚于今天")
     if not completed:
         completed = _fallback("completed_date", None) or today
     actual_income = payload.actual_income
