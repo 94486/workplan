@@ -31,7 +31,7 @@
     },
     "monthly_settings": {
       "type": "array",
-      "description": "月薪收入配置（月度整体收入）",
+      "description": "月薪收入台账（按月一条，可多条；每个 month_key 对应一个月的收入）",
       "items": { "$ref": "#/definitions/monthly_setting" }
     }
   },
