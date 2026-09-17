@@ -71,6 +71,8 @@ const App = (() => {
       sw.title = m === "monthly"
         ? "当前为月薪模式，点击切换为日薪模式"
         : "当前为日薪模式，点击切换为月薪模式";
+      const mi = document.getElementById("btnMonthlyIncome");
+      if (mi) mi.hidden = m !== "monthly";
     };
     sw.addEventListener("click", () => {
       const m = Store.getMode() === "daily" ? "monthly" : "daily";
@@ -369,6 +371,8 @@ const App = (() => {
     document.getElementById("btnImport").addEventListener("click", () => Modal.openImport());
     document.getElementById("btnExport").addEventListener("click", () => Modal.openExport());
     document.getElementById("btnPush").addEventListener("click", () => Modal.openPush());
+    const miBtn = document.getElementById("btnMonthlyIncome");
+    if (miBtn) miBtn.addEventListener("click", () => Modal.openMonthlyIncome());
 
     /* ---------- 数据对接待审查提醒（角标 + 轮询） ----------
      * 外部程序推送的数据不依赖工作台在线即可缓存到待审查箱；

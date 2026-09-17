@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>个人工作管理工作台</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=20260922" />
+  <link rel="stylesheet" href="/static/css/style.css?v=20260923" />
   <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
   <script>
     // 防闪跳：渲染前按 ?theme= 参数（优先级高）或 localStorage 记忆应用主题
@@ -53,6 +53,7 @@
       <button class="btn btn-ghost btn-sm" id="btnPush" title="数据对接：其他程序通过对接码推送数据，审查后合并">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>对接<span class="push-badge" id="pushBadge" hidden></span>
       </button>
+      <button class="btn btn-ghost btn-sm" id="btnMonthlyIncome" title="月薪收入管理（按月台账 · 调薪编辑对应月份）" hidden><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 8.5 12 12l3.5-3.5M12 12v5M9 14h6"/></svg>月薪收入</button>
       <button class="btn btn-primary" id="btnNewWork">＋ 录入工作</button>
     </div>
   </header>
@@ -157,12 +158,12 @@
   <!-- 轻提示 -->
   <div class="toast" id="toast"></div>
 
-  <script src="/static/js/api.js?v=20260922"></script>
-  <script src="/static/js/store.js?v=20260922"></script>
-  <script src="/static/js/charts.js?v=20260922"></script>
-  <script src="/static/js/kanban.js?v=20260922"></script>
-  <script src="/static/js/stats.js?v=20260922"></script>
-  <script src="/static/js/modal.js?v=20260922"></script>
-  <script src="/static/js/app.js?v=20260922"></script>
+  <script src="/static/js/api.js?v=20260923"></script>
+  <script src="/static/js/store.js?v=20260923"></script>
+  <script src="/static/js/charts.js?v=20260923"></script>
+  <script src="/static/js/kanban.js?v=20260923"></script>
+  <script src="/static/js/stats.js?v=20260923"></script>
+  <script src="/static/js/modal.js?v=20260923"></script>
+  <script src="/static/js/app.js?v=20260923"></script>
 </body>
 </html>

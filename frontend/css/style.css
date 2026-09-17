@@ -2468,3 +2468,28 @@ body, .topbar, .modal-box {
 :root:not([data-theme="light"]) .day-head {
   border-bottom-color: rgba(148,163,184,.12);
 }
+
+/* ============================================================
+   月薪收入管理弹窗（独立于报表）
+   ============================================================ */
+.income-mgr { display: flex; flex-direction: column; gap: 14px; }
+.income-mgr .io-hint { line-height: 1.7; }
+.im-form {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-1);
+}
+.im-field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-2); font-weight: 600; }
+.im-field .input { min-width: 120px; }
+#imSave { margin-left: auto; }
+.im-list { max-height: 300px; overflow-y: auto; }
+.im-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.im-table thead th {
+  text-align: left; padding: 8px 10px; font-size: 11px; color: var(--text-2);
+  letter-spacing: .5px; border-bottom: 1px solid var(--line-strong); white-space: nowrap;
+}
+.im-table thead th.num, .im-table td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.im-table tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--text-1); }
+.im-table tbody tr:last-child td { border-bottom: none; }
+.im-table tbody tr:hover td { background: rgba(96,165,250,.05); }
+.im-table td b { color: var(--text-0); }

@@ -447,50 +447,78 @@ const Modal = (() => {
     }
   }
 
-  /* ---------- 7. 月薪收入台账：新增 / 编辑某月收入 ---------- */
-  async function openMonthlySettings(rec) {
-    const isEdit = !!(rec && rec.month_key);
-    const defaultMonth = () => {
-      const d = new Date();
-      const m = new Date(d.getFullYear(), d.getMonth() - 1, 1); // 默认上月
-      return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`;
-    };
-    const monthKey = (rec && rec.month_key) || defaultMonth();
+  /* ---------- 7. 月薪收入管理（独立弹窗 · 按月台账增删改） ---------- */
+  async function openMonthlyIncome() {
+    let settings = [];
+    try { settings = await API.getMonthlySettings(); } catch (e) { /* 保持空 */ }
+    const ICON_EDIT = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+    const ICON_DEL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+    const monthLabel = (mk) => { const [y, m] = String(mk).split("-"); return `${y}年${Number(m)}月`; };
+    const _d = new Date();
+    const curMonth = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, "0")}`;
 
     open(`
-      <div class="form-grid">
-        <div class="form-item full">
-          <label>${isEdit ? "编辑月收入" : "新增月收入"} · 按月台账</label>
-          <p class="io-hint">为「${esc(monthKey)}」这一月填写常规与其它收入。不同月份各存一条、互不影响；<b>遇到调薪就编辑对应月份</b>，报表按所选月份读取该月收入。</p>
+      <div class="income-mgr">
+        <p class="io-hint">按月台账：每月一条收入，跨月独立并存。<b>遇到调薪就编辑对应月份</b>，或为新月新增一条。月薪报表默认展示本月实时数据。</p>
+        <div class="im-form">
+          <label class="im-field">月份<input class="input" id="imMonth" type="month" value="${esc(curMonth)}" /></label>
+          <label class="im-field">常规收入<input class="input" id="imReg" type="number" min="0" step="100" placeholder="0" /></label>
+          <label class="im-field">其它收入<input class="input" id="imOth" type="number" min="0" step="100" placeholder="0" /></label>
+          <button class="btn btn-primary btn-sm" id="imSave">保存该月</button>
         </div>
-        <div class="form-item">
-          <label>月份</label>
-          <input class="input" id="mMonth" type="month" value="${esc(monthKey)}" ${isEdit ? "disabled" : ""} />
-        </div>
-        <div class="form-item">
-          <label>常规工作收入（元）</label>
-          <input class="input" id="mRegular" type="number" min="0" step="100" value="${rec && rec.regular_income ? rec.regular_income : ""}" placeholder="0" />
-        </div>
-        <div class="form-item full">
-          <label>其它工作收入（元）</label>
-          <input class="input" id="mOther" type="number" min="0" step="100" value="${rec && rec.other_income ? rec.other_income : ""}" placeholder="0" />
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-ghost" data-close>取消</button>
-        <button class="btn btn-primary" id="btnSaveSettings">保存</button>
-      </div>`, isEdit ? `编辑 ${esc(monthKey)} 收入` : "记录月收入");
+        <div class="im-list" id="imList"></div>
+      </div>`, "月薪收入管理");
 
-    document.getElementById("btnSaveSettings").addEventListener("click", async () => {
+    const renderList = () => {
+      const el = document.getElementById("imList");
+      if (!el) return;
+      if (!settings.length) { el.innerHTML = `<div class="push-empty">还没有收入记录，用上方表单新增。</div>`; return; }
+      el.innerHTML = `<table class="im-table"><thead><tr><th>月份</th><th class="num">常规</th><th class="num">其它</th><th class="num">合计</th><th class="num">操作</th></tr></thead><tbody>` +
+        settings.map((s) => `<tr>
+          <td>${monthLabel(s.month_key)}</td>
+          <td class="num">${Number(s.regular_income || 0).toLocaleString()}</td>
+          <td class="num">${Number(s.other_income || 0).toLocaleString()}</td>
+          <td class="num"><b>${Number(s.total_income || 0).toLocaleString()}</b></td>
+          <td class="num"><div class="row-actions">
+            <button class="mini" data-load="${s.month_key}" title="载入到上方表单编辑">${ICON_EDIT}</button>
+            <button class="mini del" data-del="${s.month_key}" title="删除该月">${ICON_DEL}</button>
+          </div></td></tr>`).join("") + `</tbody></table>`;
+    };
+    renderList();
+
+    document.getElementById("imList").addEventListener("click", async (e) => {
+      const load = e.target.closest("[data-load]");
+      const del = e.target.closest("[data-del]");
+      if (load) {
+        const s = settings.find((x) => x.month_key === load.dataset.load);
+        if (s) {
+          document.getElementById("imMonth").value = s.month_key;
+          document.getElementById("imReg").value = s.regular_income || "";
+          document.getElementById("imOth").value = s.other_income || "";
+          document.getElementById("imReg").focus();
+        }
+      } else if (del) {
+        const mk = del.dataset.del;
+        if (del.dataset.confirm !== "1") {
+          del.dataset.confirm = "1"; const orig = del.innerHTML; del.textContent = "确认?";
+          setTimeout(() => { if (del.isConnected && del.dataset.confirm === "1") { del.dataset.confirm = ""; del.innerHTML = orig; } }, 3000);
+          return;
+        }
+        try {
+          await API.deleteMonthlySetting(mk);
+          settings = await API.getMonthlySettings(); renderList();
+          Toast.show(`已删除 ${mk} 收入记录`, "ok");
+          await Store.refresh();
+        } catch (err) { Toast.show(err.message, "err"); }
+      }
+    });
+
+    document.getElementById("imSave").addEventListener("click", async () => {
+      const mk = document.getElementById("imMonth").value;
+      if (!mk) { Toast.show("请选择月份", "err"); return; }
       try {
-        const mk = isEdit ? monthKey : (document.getElementById("mMonth").value || monthKey);
-        if (!mk) { Toast.show("请选择月份", "err"); return; }
-        await API.upsertMonthlySetting({
-          month_key: mk,
-          regular_income: numVal("mRegular"),
-          other_income: numVal("mOther"),
-        });
-        close();
+        await API.upsertMonthlySetting({ month_key: mk, regular_income: numVal("imReg"), other_income: numVal("imOth") });
+        settings = await API.getMonthlySettings(); renderList();
         Toast.show(`${mk} 收入已保存`, "ok");
         await Store.refresh();
       } catch (e) { Toast.show(e.message, "err"); }
@@ -876,7 +904,7 @@ const Modal = (() => {
     renderInbox();
   }
 
-  return { openCreate, openEdit, openWorkActions, confirmDelete, openExport, openImport, openPush, openMonthlySettings, close };
+  return { openCreate, openEdit, openWorkActions, confirmDelete, openExport, openImport, openPush, openMonthlyIncome, close };
 })();
 
 /* ---------- Toast 轻提示 ---------- */
