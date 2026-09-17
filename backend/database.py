@@ -108,11 +108,11 @@ CREATE TABLE IF NOT EXISTS monthly_presets (
 
 CREATE INDEX IF NOT EXISTS idx_mpresets_work_type ON monthly_presets(work_type);
 
+-- 月薪收入台账：按月一条（month_key=YYYY-MM 为主键），支持跨月不同薪资并存与调整
 CREATE TABLE IF NOT EXISTS monthly_settings (
-    id             INTEGER PRIMARY KEY CHECK (id = 1),
-    month_key      TEXT    NOT NULL DEFAULT '',
-    regular_income REAL    NOT NULL DEFAULT 0,
-    other_income   REAL    NOT NULL DEFAULT 0,
+    month_key      TEXT    PRIMARY KEY,               -- 月份 YYYY-MM，每月一条
+    regular_income REAL    NOT NULL DEFAULT 0,        -- 该月常规收入
+    other_income   REAL    NOT NULL DEFAULT 0,        -- 该月其它收入
     updated_at     TEXT    NOT NULL
 );
 
@@ -213,6 +213,34 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 conn.execute(f"ALTER TABLE push_inbox DROP COLUMN {col}")
             except sqlite3.OperationalError:
                 pass  # 旧版 SQLite 不支持 DROP COLUMN 时保留，不影响功能
+
+    # monthly_settings：旧「单行 id=1」结构 → 新「按月 month_key 主键」台账
+    ms_cols = {r["name"] for r in conn.execute("PRAGMA table_info(monthly_settings)").fetchall()}
+    if ms_cols and "id" in ms_cols:
+        # 旧表存在（有 id 列）：把每一行按 month_key 落入新表；month_key 为空则记为上月
+        today = datetime.now()
+        ly, lm = (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
+        default_mk = f"{ly}-{lm:02d}"
+        old_rows = conn.execute(
+            "SELECT month_key, regular_income, other_income, updated_at FROM monthly_settings"
+        ).fetchall()
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS monthly_settings_new (
+                   month_key TEXT PRIMARY KEY,
+                   regular_income REAL NOT NULL DEFAULT 0,
+                   other_income REAL NOT NULL DEFAULT 0,
+                   updated_at TEXT NOT NULL)"""
+        )
+        for r in old_rows:
+            mk = (r["month_key"] or "").strip() or default_mk
+            conn.execute(
+                """INSERT OR REPLACE INTO monthly_settings_new
+                   (month_key, regular_income, other_income, updated_at) VALUES (?,?,?,?)""",
+                (mk, float(r["regular_income"] or 0), float(r["other_income"] or 0),
+                 r["updated_at"] or now_str()),
+            )
+        conn.execute("DROP TABLE monthly_settings")
+        conn.execute("ALTER TABLE monthly_settings_new RENAME TO monthly_settings")
 
 
 def _seed_demo(conn: sqlite3.Connection) -> None:

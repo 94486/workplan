@@ -59,10 +59,11 @@ const API = (() => {
     updateMonthlyPreset: (id, data) => request("PUT", `/api/monthly/presets/${id}`, data),
     deleteMonthlyPreset: (id) => request("DELETE", `/api/monthly/presets/${id}`),
 
-    /** 月薪模式：收入配置 + 统计 */
+    /** 月薪模式：收入台账（按月） + 统计 */
     getMonthlySettings: () => request("GET", "/api/monthly/settings"),
-    updateMonthlySettings: (data) => request("PUT", "/api/monthly/settings", data),
-    getMonthlySummary: () => request("GET", "/api/monthly/stats/summary"),
+    upsertMonthlySetting: (data) => request("PUT", "/api/monthly/settings", data),
+    deleteMonthlySetting: (monthKey) => request("DELETE", `/api/monthly/settings/${encodeURIComponent(monthKey)}`),
+    getMonthlySummary: (month) => request("GET", `/api/monthly/stats/summary${month ? `?month=${month}` : ""}`),
     getMonthlyWeekly: () => request("GET", "/api/monthly/stats/weekly"),
     getMonthlyMonthly: () => request("GET", "/api/monthly/stats/monthly"),
 

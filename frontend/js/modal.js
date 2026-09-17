@@ -447,50 +447,51 @@ const Modal = (() => {
     }
   }
 
-  /* ---------- 7. 月薪收入配置 ---------- */
-  async function openMonthlySettings() {
-    let settings = { month_key: "", regular_income: 0, other_income: 0 };
-    try { settings = await API.getMonthlySettings(); } catch (e) { /* 保持默认 */ }
-    // 默认"对应月份"取上月
+  /* ---------- 7. 月薪收入台账：新增 / 编辑某月收入 ---------- */
+  async function openMonthlySettings(rec) {
+    const isEdit = !!(rec && rec.month_key);
     const defaultMonth = () => {
       const d = new Date();
-      const m = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+      const m = new Date(d.getFullYear(), d.getMonth() - 1, 1); // 默认上月
       return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`;
     };
-    const monthKey = settings.month_key || defaultMonth();
+    const monthKey = (rec && rec.month_key) || defaultMonth();
 
     open(`
       <div class="form-grid">
         <div class="form-item full">
-          <label>月薪收入配置（月度固定收入，用于月薪统计展示）</label>
-          <p class="io-hint">填写「上月」的常规工作收入与其它工作收入，作为月薪模式的月度收入参考。</p>
+          <label>${isEdit ? "编辑月收入" : "新增月收入"} · 按月台账</label>
+          <p class="io-hint">为「${esc(monthKey)}」这一月填写常规与其它收入。不同月份各存一条、互不影响；<b>遇到调薪就编辑对应月份</b>，报表按所选月份读取该月收入。</p>
         </div>
         <div class="form-item">
-          <label>对应月份</label>
-          <input class="input" id="mMonth" type="month" value="${esc(monthKey)}" />
+          <label>月份</label>
+          <input class="input" id="mMonth" type="month" value="${esc(monthKey)}" ${isEdit ? "disabled" : ""} />
         </div>
         <div class="form-item">
-          <label>上月常规工作收入（元）</label>
-          <input class="input" id="mRegular" type="number" min="0" step="100" value="${settings.regular_income || ""}" placeholder="0" />
+          <label>常规工作收入（元）</label>
+          <input class="input" id="mRegular" type="number" min="0" step="100" value="${rec && rec.regular_income ? rec.regular_income : ""}" placeholder="0" />
         </div>
         <div class="form-item full">
-          <label>上月其它工作收入（元）</label>
-          <input class="input" id="mOther" type="number" min="0" step="100" value="${settings.other_income || ""}" placeholder="0" />
+          <label>其它工作收入（元）</label>
+          <input class="input" id="mOther" type="number" min="0" step="100" value="${rec && rec.other_income ? rec.other_income : ""}" placeholder="0" />
         </div>
       </div>
       <div class="form-actions">
         <button class="btn btn-ghost" data-close>取消</button>
-        <button class="btn btn-primary" id="btnSaveSettings">保存配置</button>
-      </div>`, "月薪收入配置");
+        <button class="btn btn-primary" id="btnSaveSettings">保存</button>
+      </div>`, isEdit ? `编辑 ${esc(monthKey)} 收入` : "记录月收入");
+
     document.getElementById("btnSaveSettings").addEventListener("click", async () => {
       try {
-        await API.updateMonthlySettings({
-          month_key: document.getElementById("mMonth").value || monthKey,
+        const mk = isEdit ? monthKey : (document.getElementById("mMonth").value || monthKey);
+        if (!mk) { Toast.show("请选择月份", "err"); return; }
+        await API.upsertMonthlySetting({
+          month_key: mk,
           regular_income: numVal("mRegular"),
           other_income: numVal("mOther"),
         });
         close();
-        Toast.show("月薪收入配置已保存", "ok");
+        Toast.show(`${mk} 收入已保存`, "ok");
         await Store.refresh();
       } catch (e) { Toast.show(e.message, "err"); }
     });

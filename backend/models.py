@@ -198,7 +198,7 @@ class MonthlyPresetUpdate(BaseModel):
 
 
 class MonthlySettingsUpdate(BaseModel):
-    """月薪收入配置：上月常规收入 + 上月其它收入。"""
-    month_key: Optional[str] = Field(None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="对应月份 YYYY-MM")
-    regular_income: Optional[float] = Field(None, ge=0, le=10_000_000, description="上月常规工作收入(元)")
-    other_income: Optional[float] = Field(None, ge=0, le=10_000_000, description="上月其它工作收入(元)")
+    """月薪收入台账：定位到某月，写入该月常规收入 + 其它收入（按月 upsert）。"""
+    month_key: str = Field(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="月份 YYYY-MM（必填，定位到该月）")
+    regular_income: Optional[float] = Field(None, ge=0, le=10_000_000, description="该月常规工作收入(元)")
+    other_income: Optional[float] = Field(None, ge=0, le=10_000_000, description="该月其它工作收入(元)")

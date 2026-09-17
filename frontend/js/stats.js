@@ -367,16 +367,22 @@ const Stats = (() => {
    * 月薪模式（统计聚焦「上月」完整月度，与收入配置配对核算）
    * ============================================================ */
 
-  function mRenderReport(summary) {
+  function mRenderReport(summary, settings) {
     const g = summary.groups;
     const t = summary.totals;
     const c = summary.counts;
     const p = summary.period || {};
-    const periodLabel = p.label || "上月";
+    const cur = p.month_key || "";
+    const monthLabel = (mk) => { const [y, m] = mk.split("-"); return `${y}年${Number(m)}月`; };
+    const months = Array.from(new Set([...(settings || []).map((s) => s.month_key), cur])).filter(Boolean).sort().reverse();
+    const opts = months.map((mk) => `<option value="${mk}" ${mk === cur ? "selected" : ""}>${monthLabel(mk)}</option>`).join("");
     document.getElementById("statsHero").innerHTML = `
       <div class="stats-hero-actions" style="grid-column:1 / -1">
-        <span class="sha-label">月薪报表 · ${periodLabel}<small>（收入取自配置 · 工时/完成取自该月）</small></span>
-        <button class="btn btn-sm btn-record" id="btnMonthlySettings"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>记录月收入</button>
+        <span class="sha-label">月薪报表 ·
+          <select id="mMonthPick" class="select select-sm" title="切换查看月份">${opts}</select>
+          <small>（收入取自该月台账 · 工时/完成取自该月）</small>
+        </span>
+        <button class="btn btn-sm btn-record" id="btnMonthlySettings"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>记录月收入</button>
       </div>
       ${reportCardHTML("rc-regular", '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg', "常规工作",
         `已完成 ${g[0].count} 项`, g[0].hours, g[0].income, g[0].hourly_rate)}
@@ -384,19 +390,15 @@ const Stats = (() => {
         `已完成 ${g[1].count} 项`, g[1].hours, g[1].income, g[1].hourly_rate)}
       ${reportCardHTML("rc-total", '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg', "总统计",
         `已完成 ${t.count} 项 · 待完成 ${c.pending} 项`, t.hours, t.income, t.hourly_rate)}`;
-    const btn = document.getElementById("btnMonthlySettings");
-    if (btn) btn.addEventListener("click", () => Modal.openMonthlySettings());
   }
 
-  function mRenderSub() {
-    // 月薪报表聚焦「上月」完整月度：完成率 / 工时 / 收入 / 待完成
-    const summary = Store.getSummary();
-    if (!summary) return;
+  function mRenderSub(summary) {
+    // 月薪报表：完成率 / 工时 / 收入 / 待完成（针对所选月）
     const g = summary.groups;
     const t = summary.totals;
     const c = summary.counts;
     const p = summary.period || {};
-    const periodLabel = p.label || "上月";
+    const periodLabel = p.label || "本月";
     const total = t.count + c.pending;
     const rate = total > 0 ? t.count / total : 0;
 
@@ -617,16 +619,89 @@ const Stats = (() => {
       </div>`;
   }
 
+  /* ---------- 月薪：收入台账 + 月份切换 ---------- */
+  let mSelectedMonth = null;      // 当前查看月份 YYYY-MM；null = 最近已配置月
+  let mLedgerSettings = [];       // 供一次性绑定的委托事件读取
+  let mTablesDelegated = false;   // #statsTables 委托监听只绑一次
+
+  const M_ICON_EDIT = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  const M_ICON_DEL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
+  function mLedgerHTML(settings) {
+    const monthLabel = (mk) => { const [y, m] = mk.split("-"); return `${y}年${Number(m)}月`; };
+    const rows = (settings && settings.length)
+      ? settings.map((s) => `
+        <tr>
+          <td>${monthLabel(s.month_key)}</td>
+          <td class="num">${fmtMoney(s.regular_income)}</td>
+          <td class="num">${fmtMoney(s.other_income)}</td>
+          <td class="num"><b>${fmtMoney(s.total_income)}</b></td>
+          <td class="num">
+            <div class="row-actions">
+              <button class="mini" data-medit="${s.month_key}" title="编辑该月收入">${M_ICON_EDIT}</button>
+              <button class="mini del" data-mdel="${s.month_key}" title="删除该月收入">${M_ICON_DEL}</button>
+            </div>
+          </td>
+        </tr>`).join("")
+      : `<tr><td colspan="5" class="empty-cell">还没有收入记录，点上方「记录月收入」新增</td></tr>`;
+    return `
+      <div class="table-panel">
+        <div class="panel-title">月收入台账<span class="panel-note">每月一条 · 调薪即编辑对应月份，跨月互不影响</span></div>
+        <table class="data-table">
+          <thead><tr><th>月份</th><th class="num">常规收入</th><th class="num">其它收入</th><th class="num">合计</th><th class="num">操作</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function bindMonthlyControls(settings) {
+    mLedgerSettings = settings || [];
+    const pick = document.getElementById("mMonthPick");
+    if (pick) pick.addEventListener("change", () => { mSelectedMonth = pick.value; renderMonthlyStats(); });
+    const addBtn = document.getElementById("btnMonthlySettings");
+    if (addBtn) addBtn.addEventListener("click", () => Modal.openMonthlySettings(null));
+    if (!mTablesDelegated) {
+      mTablesDelegated = true;
+      const table = document.getElementById("statsTables");
+      if (table) table.addEventListener("click", async (e) => {
+        const edit = e.target.closest("[data-medit]");
+        const del = e.target.closest("[data-mdel]");
+        if (edit) {
+          const rec = mLedgerSettings.find((s) => s.month_key === edit.dataset.medit);
+          if (rec) Modal.openMonthlySettings(rec);
+        } else if (del) {
+          const mk = del.dataset.mdel;
+          if (del.dataset.confirm !== "1") {   // 两步确认，避免误删
+            del.dataset.confirm = "1";
+            const orig = del.innerHTML;
+            del.textContent = "确认?";
+            setTimeout(() => { if (del.isConnected && del.dataset.confirm === "1") { del.dataset.confirm = ""; del.innerHTML = orig; } }, 3000);
+            return;
+          }
+          try {
+            await API.deleteMonthlySetting(mk);
+            if (mSelectedMonth === mk) mSelectedMonth = null;
+            Toast.show(`已删除 ${mk} 收入记录`, "ok");
+            await Store.refresh();
+          } catch (err) { Toast.show(err.message, "err"); }
+        }
+      });
+    }
+  }
+
   async function renderMonthlyStats() {
-    const summary = Store.getSummary();
+    const settings = await API.getMonthlySettings();
+    const summary = await API.getMonthlySummary(mSelectedMonth || undefined);
     if (!summary) return;
-    mRenderReport(summary);
-    mRenderSub();
+    if (summary.period) mSelectedMonth = summary.period.month_key;
+    mRenderReport(summary, settings);
+    mRenderSub(summary);
     await mRenderCharts();
     mRenderPeriods();
     const monthly = await API.getMonthlyMonthly();
     const container = document.getElementById("statsTables");
-    if (container) container.innerHTML = mMonthlyTableHTML(monthly) + mTypeTableHTML(summary);
+    if (container) container.innerHTML = mLedgerHTML(settings) + mMonthlyTableHTML(monthly) + mTypeTableHTML(summary);
+    bindMonthlyControls(settings);
   }
 
   return {

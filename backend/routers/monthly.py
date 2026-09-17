@@ -249,52 +249,89 @@ def delete_preset(preset_id: int):
 
 
 # ============================================================
-# 月薪收入配置
+# 月薪收入台账（按月一条，支持跨月并存与调整）
 # ============================================================
 
-def _get_settings() -> dict:
-    row = db.query_one("SELECT * FROM monthly_settings WHERE id=1")
+def _latest_configured_month() -> str | None:
+    """最近一条已配置收入的月份（month_key 最大）；无则 None。"""
+    row = db.query_one("SELECT MAX(month_key) AS mk FROM monthly_settings")
+    return (row["mk"] if row and row["mk"] else None)
+
+
+def _get_setting(month_key: str) -> dict:
+    row = db.query_one("SELECT * FROM monthly_settings WHERE month_key=?", (month_key,))
     if not row:
-        return {"id": 1, "month_key": "", "regular_income": 0.0, "other_income": 0.0}
+        return {"month_key": month_key, "regular_income": 0.0, "other_income": 0.0, "updated_at": ""}
     return {
-        "id": 1,
-        "month_key": row["month_key"] or "",
+        "month_key": row["month_key"],
         "regular_income": float(row["regular_income"] or 0),
         "other_income": float(row["other_income"] or 0),
+        "updated_at": row["updated_at"] or "",
     }
 
 
 @router.get("/settings")
-def get_settings():
-    """获取月薪收入配置（上月常规收入 + 上月其它收入）。"""
-    s = _get_settings()
+def list_settings():
+    """列出所有已配置的月收入台账（按月份倒序），每条含 total_income。"""
+    rows = db.query_all(
+        "SELECT month_key, regular_income, other_income, updated_at FROM monthly_settings ORDER BY month_key DESC"
+    )
+    out = []
+    for r in rows:
+        reg = float(r["regular_income"] or 0)
+        oth = float(r["other_income"] or 0)
+        out.append({
+            "month_key": r["month_key"],
+            "regular_income": reg,
+            "other_income": oth,
+            "total_income": round(reg + oth, 2),
+            "updated_at": r["updated_at"] or "",
+        })
+    return out
+
+
+@router.get("/settings/latest")
+def latest_setting():
+    """最近已配置月的一条收入（供前端默认展示）；无配置则返回 null。"""
+    mk = _latest_configured_month()
+    if not mk:
+        return None
+    s = _get_setting(mk)
     s["total_income"] = round(s["regular_income"] + s["other_income"], 2)
     return s
 
 
 @router.put("/settings")
-def update_settings(payload: MonthlySettingsUpdate):
-    """更新月薪收入配置。首次调用自动创建单行记录；未提交字段保留原值（部分更新不清零）。"""
+def upsert_setting(payload: MonthlySettingsUpdate):
+    """新增/编辑某月收入：以 month_key 定位该月，存在则更新、不存在则插入。未提交字段保留原值（部分更新不清零）。"""
     now = db.now_str()
     data = payload.model_dump(exclude_unset=True)
-    # 合并语义：只覆盖显式提交的字段，缺省字段保留现有行值（防止部分更新把未提交字段清零）
-    existing = db.query_one("SELECT month_key, regular_income, other_income FROM monthly_settings WHERE id=1")
-    month_key = data["month_key"] if "month_key" in data else (existing["month_key"] if existing else "")
-    regular = data["regular_income"] if "regular_income" in data else (
+    existing = db.query_one(
+        "SELECT regular_income, other_income FROM monthly_settings WHERE month_key=?", (payload.month_key,)
+    )
+    regular = data["regular_income"] if data.get("regular_income") is not None else (
         float(existing["regular_income"] or 0) if existing else 0.0)
-    other = data["other_income"] if "other_income" in data else (
+    other = data["other_income"] if data.get("other_income") is not None else (
         float(existing["other_income"] or 0) if existing else 0.0)
     db.execute(
-        """INSERT INTO monthly_settings (id, month_key, regular_income, other_income, updated_at)
-           VALUES (1, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             month_key=excluded.month_key,
+        """INSERT INTO monthly_settings (month_key, regular_income, other_income, updated_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(month_key) DO UPDATE SET
              regular_income=excluded.regular_income,
              other_income=excluded.other_income,
              updated_at=excluded.updated_at""",
-        (month_key, regular, other, now),
+        (payload.month_key, regular, other, now),
     )
-    return get_settings()
+    s = _get_setting(payload.month_key)
+    s["total_income"] = round(s["regular_income"] + s["other_income"], 2)
+    return s
+
+
+@router.delete("/settings/{month_key}", status_code=204)
+def delete_setting(month_key: str):
+    if db.query_one("SELECT 1 FROM monthly_settings WHERE month_key=?", (month_key,)) is None:
+        raise HTTPException(status_code=404, detail=f"月收入记录 {month_key} 不存在")
+    db.execute("DELETE FROM monthly_settings WHERE month_key=?", (month_key,))
 
 
 # ============================================================
@@ -325,22 +362,22 @@ def _period_range(month_key: str) -> tuple[str, str] | None:
 
 
 @router.get("/stats/summary")
-def stats_summary():
-    """月薪报表（截至上月，非当天）：完成工时 / 完成项 / 收入(配置) / 小时工资=收入/工时。
+def stats_summary(month: str | None = Query(None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")):
+    """月薪报表（按月）：完成工时 / 完成项 / 该月收入 / 小时工资=收入/工时。
 
-    统计口径：以收入配置 month_key 对应的完整月份为基准（默认上月）。
-    - 收入：来自配置的常规/其它收入（任务本身无收入字段）；
+    统计口径：目标月 = 显式 month 参数 → 否则最近已配置收入的月份 → 否则上月。
+    - 收入：来自该月收入台账的常规/其它（任务本身无收入字段）；
     - 工时 / 完成数：该月内完成任务的 actual_duration_hours 与数量；
     - 待完成：计划日期落在该月且尚未完成的任务。
     """
-    settings = _get_settings()
-    settings["total_income"] = round(settings["regular_income"] + settings["other_income"], 2)
-
-    month_key = (settings["month_key"] or "").strip()
+    month_key = (month or "").strip() or _latest_configured_month() or _default_month_key()
     rng = _period_range(month_key)
     if not rng:
         month_key = _default_month_key()
         rng = _period_range(month_key)
+    settings = _get_setting(month_key)
+    settings["total_income"] = round(settings["regular_income"] + settings["other_income"], 2)
+
     first, last = rng
     year, month = int(month_key[:4]), int(month_key[5:7])
 
@@ -442,17 +479,25 @@ def stats_monthly():
         first = date(y, m, 1)
         next_first = date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)
         last = next_first - timedelta(days=1)
+        mk = f"{y}-{m:02d}"
         r = db.query_one(
             """SELECT SUM(actual_duration_hours) AS hours, COUNT(*) AS cnt
                FROM monthly_works
                WHERE status='done' AND completed_date BETWEEN ? AND ?""",
             (first.isoformat(), last.isoformat()),
         )
+        hours = round(float(r["hours"]), 2) if r and r["hours"] else 0.0
+        st = db.query_one("SELECT regular_income, other_income FROM monthly_settings WHERE month_key=?", (mk,))
+        income = round((float(st["regular_income"] or 0) + float(st["other_income"] or 0)), 2) if st else 0.0
         result.append({
             "year": y,
             "month": m,
+            "month_key": mk,
             "label": f"{m}月",
-            "hours": round(float(r["hours"]), 2) if r and r["hours"] else 0.0,
+            "hours": hours,
             "count": int(r["cnt"]) if r and r["cnt"] else 0,
+            "income": income,
+            "configured": st is not None,
+            "hourly_rate": round(income / hours, 2) if hours > 0 else 0.0,
         })
     return result

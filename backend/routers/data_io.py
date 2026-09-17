@@ -462,12 +462,11 @@ def _make_inserts(conn, now: str):
         )
 
     def _upsert_monthly_setting(rec):
-        # monthly_settings 是单行表（id=1 约束），存储当前月度收入配置
+        # 按月收入台账：month_key 为主键，每月一条，存在则更新该月、不存在则插入
         conn.execute(
-            """INSERT INTO monthly_settings (id, month_key, regular_income, other_income, updated_at)
-               VALUES (1, ?, ?, ?, ?)
-               ON CONFLICT(id) DO UPDATE SET
-                 month_key=excluded.month_key,
+            """INSERT INTO monthly_settings (month_key, regular_income, other_income, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(month_key) DO UPDATE SET
                  regular_income=excluded.regular_income,
                  other_income=excluded.other_income,
                  updated_at=excluded.updated_at""",
@@ -560,17 +559,17 @@ def _merge_into_db(conn, norm: dict) -> dict:
             continue
         existing_mpresets.add(key)
         ins["monthly_preset"](rec); monthly_presets += 1
-    # 收入配置：merge 模式仅在库中尚无配置时才写入，绝不覆盖现有配置
+    # 收入台账：merge 模式按月份逐条写入，已存在的月份不覆盖（只补录缺失月份）
     try:
-        has_setting = conn.execute("SELECT 1 FROM monthly_settings WHERE id=1").fetchone() is not None
+        existing_months = {r["month_key"] for r in conn.execute("SELECT month_key FROM monthly_settings").fetchall()}
     except Exception:
-        has_setting = False
+        existing_months = set()
     for rec in norm["monthly_setting_records"]:
-        if has_setting:
+        if rec["month_key"] in existing_months:
             continue
         ins["monthly_setting"](rec)
+        existing_months.add(rec["month_key"])
         settings += 1
-        has_setting = True
     total_processed = (len(norm["records"]) + len(norm["preset_records"]) + len(norm["monthly_records"])
                        + len(norm["monthly_preset_records"]) + len(norm["monthly_setting_records"]))
     inserted = daily_works + daily_presets + monthly_works + monthly_presets + settings
