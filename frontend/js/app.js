@@ -373,6 +373,8 @@ const App = (() => {
     document.getElementById("btnPush").addEventListener("click", () => Modal.openPush());
     const miBtn = document.getElementById("btnMonthlyIncome");
     if (miBtn) miBtn.addEventListener("click", () => Modal.openMonthlyIncome());
+    const repoBtn = document.getElementById("btnRepo");
+    if (repoBtn) repoBtn.addEventListener("click", () => window.open("https://github.com/94486/workplan", "_blank", "noopener,noreferrer"));
 
     /* ---------- 数据对接待审查提醒（角标 + 轮询） ----------
      * 外部程序推送的数据不依赖工作台在线即可缓存到待审查箱；
