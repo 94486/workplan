@@ -1,9 +1,10 @@
 # ============================================================
 # 龙猫工作统计台 - Docker Compose 一键启动
-# 用法: docker compose up -d      （构建并启动）
-#       docker compose down       （停止并移除容器，数据卷保留）
-#       docker compose logs -f    （查看日志）
-# 数据持久化在命名卷 work-data 中，重建/升级容器不丢失
+# 用法: docker compose up -d --build   （改过代码/Dockerfile 后务必带 --build，否则复用旧镜像！）
+#       docker compose up -d           （仅启动；镜像已存在时【不会】重新构建）
+#       docker compose down            （停止并移除容器，命名卷数据保留）
+#       docker compose logs -f         （查看日志；导入 500 等报错先看这里的 Traceback）
+# 数据：镜像本身不含数据，运行时读写命名卷 work-data 挂载的 /data/works.db（首次自动建空库）
 # ============================================================
 
 services:
